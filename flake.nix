@@ -9,8 +9,7 @@
 
 
     # ROS Humble works better with this nixpkgs baseline
-    nixpkgs.url =
-      "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.follows = "nix-ros-overlay/nixpkgs";  # IMPORTANT!!!
 
   };
 
