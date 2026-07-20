@@ -18,36 +18,38 @@
 
     nativeBuildInputs = [
       pkgs.cmake
-      pkgs.pkg-config
-      pkgs.git
-      pkgs.cacert
+        pkgs.pkg-config
+        pkgs.git
+        pkgs.cacert
 
     ];
 
 
     buildInputs = [
       pkgs.asio
-      pkgs.openssl
+        pkgs.openssl
     ];
 
-  SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
-  GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
-    # buildPhase = ''
-    # mkdir build && \
-    # cd build && \
-    # cmake .. && \
-    # make -j"$(nproc)" && \
-    # make install
-    # '';
+# buildPhase = ''
+# mkdir build && \
+# cd build && \
+# cmake .. && \
+# make -j"$(nproc)" && \
+# make install
+# '';
+    cmakeFlags = [
+  "-DCMAKE_CXX_FLAGS=-Wno-error"
+    ];
 
+installPhase = ''
+  mkdir -p $out/bin
 
-    installPhase = ''
-      mkdir -p $out/bin
-
-      cp MicroXRCEAgent \
-        $out/bin/
-    '';
+  cp MicroXRCEAgent \
+  $out/bin/
+  '';
 
   };
 
