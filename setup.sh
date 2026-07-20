@@ -24,7 +24,8 @@ until git \
         -c http.version=HTTP/1.1 \
         -c http.postBuffer=524288000 \
         -c core.compression=0 \
-        submodule update --init --recursive --jobs 4 "${DEPTH_ARGS[@]}" \
+        submodule update --init --recursive --jobs 4 \
+        ${DEPTH_ARGS[@]+"${DEPTH_ARGS[@]}"} \
         services/PX4-Autopilot; do
   if [ "$attempt" -ge "$max_attempts" ]; then
     echo "ERROR: submodule fetch failed after $max_attempts attempts." >&2
