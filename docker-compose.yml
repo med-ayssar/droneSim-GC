@@ -1,0 +1,63 @@
+services:
+  px4-ros2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      # Specify the target stage (optional, defaults to last stage 'final')
+      target: final
+    container_name: px4-ros2
+    network_mode: host
+
+
+    # Enables full hardware/network interface access inside Docker
+    privileged: true
+    tty: true
+    stdin_open: true
+
+    ports:
+      # --- Remote SSH (Zed / VSCode) ---
+      - "2222:22"
+
+      # --- KasmVNC Modern Web Interface ---
+      - "8443:8443"
+
+      # --- MAVLink Communication (UDP) ---
+      # QGroundControl Telemetry
+      - "14550:14550/udp"
+      # Offboard API (MAVROS / MAVSDK / ROS 2)
+      - "14540:14540/udp"
+      # Simulator MAVLink Bridge
+      - "14560:14560/udp"
+
+      # --- Micro XRCE-DDS Agent (PX4 <-> ROS 2 Bridge) ---
+      - "8888:8888/udp"
+
+      # --- ROS 2 DDS Discovery ---
+      - "7400:7400/udp"
+      - "7401:7401/udp"
+
+    environment:
+      # :1 = KasmVNC virtual display (browser VNC)
+      # :0 = WSL/WSLg display (native Windows rendering) — switch with: export DISPLAY=:0
+      - DISPLAY=:1
+      - ROS_DOMAIN_ID=0
+      - ROS_LOCALHOST_ONLY=0
+      - PX4_SIM_HOST_ADDR=127.0.0.1
+      - QT_X11_NO_MITSHM=1
+      # Optimizes software rendering thread allocation for Gazebo on Mac
+      - LP_NUM_THREADS=8
+      - LIBGL_ALWAYS_SOFTWARE=1
+
+    volumes:
+      # X0 = WSLg display socket mounted outside .X11-unix to avoid permission conflicts.
+      # The entrypoint symlinks /tmp/.X11-unix/X0 -> /tmp/wsl-X0 after KasmVNC starts.
+      - type: bind
+        source: /tmp/.X11-unix/X0
+        target: /tmp/wsl-X0
+
+      # WSLg runtime dir
+      - /mnt/wslg:/mnt/wslg:rw
+
+      - ./packages:/home/dev/
+
+    command: bash

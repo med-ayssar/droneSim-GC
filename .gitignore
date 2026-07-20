@@ -1,0 +1,23 @@
+# colcon build output directories
+build/
+install/
+log/
+
+# Python & C++ compilation artifacts
+__pycache__/
+*.pyc
+*.o
+*.so
+*.a
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+
+# IDE & Editor folders
+.vscode/
+.idea/
+.zed/
+*.swp
+*.swo
