@@ -58,17 +58,17 @@
         };
 
 
-      px4-msgs =
-        import ./px4-msgs {
-          inherit pkgs;
-        };
-
-
-      px4-autopilot =
-        import ./px4-autopilot {
-          inherit pkgs;
-        };
-
+      # px4-msgs =
+      #   import ./px4-msgs {
+      #     inherit pkgs;
+      #   };
+      #
+      #
+      # px4-autopilot =
+      #   import ./px4-autopilot {
+      #     inherit pkgs;
+      #   };
+      #
 
     in {
 
