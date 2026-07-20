@@ -20,6 +20,12 @@
       pkgs.colcon
       pkgs.cmake
       pkgs.python3
+       (pkgs.python3.withPackages (ps: [
+    ps.setuptools
+    ps.packaging
+    ps.pyyaml
+    ps.empy
+  ]))
     ];
 
 
