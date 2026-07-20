@@ -1,40 +1,18 @@
 {
   description = "PX4 ROS2 development environment";
 
-
   inputs = {
-
-
-    flake-utils.url =
-      "github:numtide/flake-utils";
-
-
-    nix-ros-overlay.url =
-      "github:lopsided98/nix-ros-overlay";
-
+    nix-ros-overlay.url = "github:lopsided98/nix-ros-overlay/master";
     nixpkgs.follows = "nix-ros-overlay/nixpkgs";
-
   };
 
+  outputs = { self, nix-ros-overlay, nixpkgs }:
 
-  outputs =
-    {
-      self,
-      nixpkgs,
-      flake-utils,
-      nix-ros-overlay,
-    }:
+    nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem (system:
 
+      let
 
-    flake-utils.lib.eachDefaultSystem
-
-    (system:
-
-    let
-
-      pkgs =
-        import nixpkgs {
-
+        pkgs = import nixpkgs {
           inherit system;
 
           overlays = [
@@ -42,80 +20,85 @@
           ];
 
           config.allowUnfree = true;
-
         };
 
 
-      ros2 =
-        import ./ros2 {
-          inherit pkgs;
-        };
+        ros2 =
+          with pkgs.rosPackages.humble;
+          buildEnv {
+            underlay = true;
 
+            paths = [
+              ros-core
+              colcon
+              ros-base
+              # add more ROS packages here:
+              # rclcpp
+              # rclpy
+              # geometry-msgs
+              # sensor-msgs
+            ];
+          };
 
-      micro-xrce-dds-agent =
-        import ./micro-xrce-dds-agent {
-          inherit pkgs;
-        };
-
-
-      px4-msgs =
-        import ./px4-msgs {
-          inherit pkgs;
-        };
-
-
-      px4-autopilot =
-        import ./px4-autopilot {
-          inherit pkgs;
-        };
-
-
-    in {
-
-
-      packages = {
 
         micro-xrce-dds-agent =
-          micro-xrce-dds-agent.package;
+          import ./micro-xrce-dds-agent {
+            inherit pkgs;
+          };
 
 
         px4-msgs =
-          px4-msgs.package;
-
-
-        px4 =
-          px4-autopilot.package;
-
-
-        default =
-          pkgs.symlinkJoin {
-
-            name = "px4-stack";
-
-            paths = [
-
-              micro-xrce-dds-agent.package
-
-              px4-msgs.package
-
-              px4-autopilot.package
-
-            ];
-
+          import ./px4-msgs {
+            inherit pkgs;
           };
 
-      };
+
+        px4-autopilot =
+          import ./px4-autopilot {
+            inherit pkgs;
+          };
 
 
+      in {
 
-      devShells.default =
+        packages = {
 
-        pkgs.mkShell {
+          micro-xrce-dds-agent =
+            micro-xrce-dds-agent.package;
+
+
+          px4-msgs =
+            px4-msgs.package;
+
+
+          px4 =
+            px4-autopilot.package;
+
+
+          default =
+            pkgs.symlinkJoin {
+
+              name = "px4-stack";
+
+              paths = [
+                micro-xrce-dds-agent.package
+                px4-msgs.package
+                px4-autopilot.package
+              ];
+
+            };
+
+        };
+
+
+        devShells.default = pkgs.mkShell {
+
+          name = "PX4 ROS2 Humble development environment";
 
 
           packages = [
 
-            ros2.shell
+            ros2
 
             micro-xrce-dds-agent.package
 
@@ -124,27 +107,26 @@
             px4-autopilot.package
 
 
+            pkgs.colcon
+
             pkgs.git
+
             pkgs.tmux
 
           ];
 
 
-
           shellHook = ''
 
             echo ""
-            echo "PX4 ROS2 environment"
+            echo "PX4 ROS2 Humble environment"
             echo ""
 
-
             export ROS_DOMAIN_ID=0
-
 
             alias start-agent="
               MicroXRCEAgent udp4 -p 8888
             "
-
 
             alias start-px4="
               px4
@@ -154,5 +136,18 @@
 
         };
 
-    });
+      });
+
+
+  nixConfig = {
+
+    extra-substituters = [
+      "https://ros.cachix.org"
+    ];
+
+    extra-trusted-public-keys = [
+      "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo="
+    ];
+
+  };
 }
