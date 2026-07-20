@@ -1,57 +1,42 @@
 { pkgs }:
 
-
 {
 
-package =
+  package = pkgs.stdenv.mkDerivation {
 
-pkgs.stdenv.mkDerivation {
+    pname = "px4-msgs";
 
-
-pname="px4-msgs";
-
-version="main";
+    version = "main";
 
 
-src="./px4_msgs";
-dontUnpack = true;
+    src = pkgs.fetchgit {
+      url = "https://github.com/PX4/px4_msgs.git";
+      rev = "main";
+      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    };
 
 
-
-nativeBuildInputs=[
-
- pkgs.colcon
-
- pkgs.cmake
-
- pkgs.python3
-
-];
+    nativeBuildInputs = [
+      pkgs.colcon
+      pkgs.cmake
+      pkgs.python3
+    ];
 
 
+    buildPhase = ''
+      source ${pkgs.rosPackages.humble.ros-core}/setup.bash
 
-buildPhase=''
-
-source ${pkgs.rosPackages.humble.ros-core}/setup.bash
-
-
-colcon build \
- --symlink-install
-
-'';
+      colcon build \
+        --symlink-install
+    '';
 
 
+    installPhase = ''
+      mkdir -p $out
 
-installPhase=''
+      cp -r install $out/
+    '';
 
-mkdir -p $out
-
-
-cp -r install $out/
-
-'';
-
-
-};
+  };
 
 }
