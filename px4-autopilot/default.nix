@@ -18,17 +18,20 @@
       cmake
       ninja
       python3
-      python3Packages.jinja2
-      python3Packages.pyserial
-      python3Packages.numpy
-      python3Packages.packaging
-      pkgs.python3Packages.kconfiglib
       git
       bc
       perl
       which
       file
-      unzip
+   (pkgs.python3.withPackages (ps: [
+    ps.kconfiglib
+    ps.jinja2
+    ps.pyserial
+    ps.numpy
+    ps.packaging
+    ps.pyyaml
+    ps.empy
+  ]))    unzip
     ];
 
     buildPhase = ''
