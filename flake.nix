@@ -66,23 +66,17 @@ pkgs =
         #
         # ROS2 Humble environment
         #
-        ros2 =
-          with rosPackages;
-          buildEnv {
+ros2 =
+  with pkgs.rosPackages.humble;
+  buildEnv {
+    underlay = true;
 
-            underlay = true;
-
-            paths = [
-
-              ros-core
-              ros-base
-              colcon
-
-            ];
-
-          };
-
-
+    paths = [
+      ros-core
+      ros-base
+      colcon
+    ];
+  };
         micro-xrce-dds-agent =
           import ./micro-xrce-dds-agent {
             inherit pkgs;
