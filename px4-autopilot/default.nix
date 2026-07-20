@@ -31,7 +31,8 @@
     ps.packaging
     ps.pyyaml
     ps.empy
-            pkgs.gnumake
+    ps.pyros-genmsg
+
 
   ]))    unzip
     ];
