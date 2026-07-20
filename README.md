@@ -33,6 +33,14 @@ Restart your shell afterwards so `nix` is on `PATH`.
 
 > **WSL note:** this repo is developed on WSL2. Run all commands from inside the WSL Linux filesystem (e.g. `~/dev/drone-sim`), not a `/mnt/c` path — Gazebo and the build are far slower over the Windows mount.
 
+> **WSL note — build sandbox:** the Micro XRCE-DDS Agent flake's CMake superbuild `git clone`s its dependencies *during the build*. Nix's default Linux build sandbox gives builds a loopback-only network namespace, so on WSL those clones fail with `Could not resolve host: github.com`. Disable the sandbox so builds can use the host network:
+>
+> ```bash
+> echo "sandbox = false" >> ~/.config/nix/nix.conf
+> ```
+>
+> For a single-user Nix install (store owned by your user, no `nix-daemon`) this takes effect immediately — no sudo, no restart. If you're on a multi-user/daemon install, put the line in `/etc/nix/nix.conf` (needs root) and restart the daemon: `sudo systemctl restart nix-daemon`. Verify with `nix show-config | grep '^sandbox '`. This makes builds impure (they can reach the network); it's the same tradeoff a default native-Linux Nix setup already makes.
+
 ---
 
 ## 2. Clone and set up PX4-Autopilot
@@ -206,3 +214,4 @@ It installs/provides tmux automatically (via `nix shell nixpkgs#tmux` if it isn'
 - **`px4_msgs` not found at build** — you're outside `nix develop`. Re-enter the shell so the flake-provided `px4_msgs` is on the CMake prefix path.
 - **Gazebo slow / crashes on WSL** — use `HEADLESS=1`, and work from the native Linux filesystem, not `/mnt/c`.
 - **Submodule fetch fails (`invalid index-pack` / `early EOF`)** — the PX4 history is too big for a flaky link. `setup.sh` retries with HTTP/1.1 + a large buffer; if it still dies, run `PX4_SHALLOW=1 ./setup.sh` to fetch only the pinned commits.
+- **Nix build fails with `Could not resolve host: github.com` (WSL)** — the build sandbox has no network, so the agent's CMake superbuild can't clone its deps. Add `sandbox = false` to `~/.config/nix/nix.conf` (see the WSL sandbox note in Section 1).

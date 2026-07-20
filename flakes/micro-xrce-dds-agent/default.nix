@@ -22,6 +22,7 @@
         pkgs.pkg-config
         pkgs.git
         pkgs.cacert
+        pkgs.autoPatchelfHook
 
     ];
 
@@ -29,6 +30,7 @@
     buildInputs = [
       pkgs.asio
         pkgs.openssl
+        pkgs.tinyxml-2
     ];
 
     SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
@@ -48,10 +50,21 @@
 # make install
 # '';
 installPhase = ''
-  mkdir -p $out/bin
+  runHook preInstall
 
-  cp MicroXRCEAgent \
-  $out/bin/
+  mkdir -p $out/bin $out/lib
+
+  # The Agent's superbuild disables the final install step
+  # (INSTALL_COMMAND "" in cmake/SuperBuild.cmake), so the binary and its
+  # shared libraries are left in the build tree. Collect them by hand:
+  #   - MicroXRCEAgent + libmicroxrcedds_agent.so live in the build root
+  #   - fastcdr / fastdds and friends live under temp_install/*/lib
+  cp MicroXRCEAgent $out/bin/
+  cp -a libmicroxrcedds_agent.so* $out/lib/
+  find temp_install -type f \( -name '*.so' -o -name '*.so.*' \) \
+    -exec cp -a {} $out/lib/ \;
+
+  runHook postInstall
   '';
 
   };
