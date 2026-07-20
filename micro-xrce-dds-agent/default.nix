@@ -32,6 +32,8 @@
 
     SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    NIX_CFLAGS_COMPILE = "-Wno-error=deprecated-literal-operator";
+
 
 # buildPhase = ''
 # mkdir build && \
@@ -40,10 +42,6 @@
 # make -j"$(nproc)" && \
 # make install
 # '';
-    cmakeFlags = [
-  "-DCMAKE_CXX_FLAGS=-Wno-error"
-    ];
-
 installPhase = ''
   mkdir -p $out/bin
 
