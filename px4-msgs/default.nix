@@ -1,49 +1,39 @@
 { pkgs }:
 
+let
+  ros = pkgs.rosPackages.humble;
+in
 {
-
-  package = pkgs.stdenv.mkDerivation {
-
+  package = ros.buildRosPackage {
     pname = "px4-msgs";
-
     version = "main";
-
 
     src = pkgs.fetchgit {
       url = "https://github.com/PX4/px4_msgs.git";
-      rev= "refs/heads/main";
+      rev = "refs/heads/main";
       hash = "sha256-H66Ae0iZeQ+qjruLPSzS3JW5dt+U7KgVhv6YxdnlmbA=";
     };
 
+    buildType = "ament_cmake";
 
+    # buildtool_depend in package.xml
     nativeBuildInputs = [
-      pkgs.colcon
-      pkgs.cmake
-      pkgs.python3
-       (pkgs.python3.withPackages (ps: [
-    ps.setuptools
-    ps.packaging
-    ps.pyyaml
-    ps.empy
-  ]))
+      ros.ament-cmake
+      ros.ament-cmake-core
+      ros.rosidl-default-generators
     ];
 
+    propagatedBuildInputs = [
+      ros.builtin-interfaces
+      ros.geometry-msgs
+      ros.sensor-msgs
+      ros.std-msgs
+      ros.rosidl-default-runtime
+    ];
 
-    NIX_CFLAGS_COMPILE = "-Wno-error=deprecated-literal-operator";
-    buildPhase = ''
-      source ${pkgs.rosPackages.humble.ros-core}/setup.bash
-
-      colcon build \
-        --symlink-install
-    '';
-
-
-    installPhase = ''
-      mkdir -p $out
-
-      cp -r install $out/
-    '';
-
+    meta = {
+      description = "PX4 ROS 2 message definitions (px4_msgs)";
+      homepage = "https://github.com/PX4/px4_msgs";
+    };
   };
-
 }
