@@ -7,7 +7,7 @@
 
     src = pkgs.fetchgit {
       url = "https://github.com/PX4/PX4-Autopilot.git";
-      ref = "refs/heads/main";
+      rev= "refs/heads/main";
       hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
       fetchSubmodules = true;
     };
