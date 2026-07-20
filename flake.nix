@@ -7,8 +7,10 @@
     nix-ros-overlay.url =
       "github:lopsided98/nix-ros-overlay/master";
 
-    nixpkgs.follows =
-      "nix-ros-overlay/nixpkgs";
+
+    # ROS Humble works better with this nixpkgs baseline
+    nixpkgs.url =
+      "github:NixOS/nixpkgs/nixos-24.05";
 
   };
 
@@ -30,14 +32,6 @@
             overlays = [
 
               nix-ros-overlay.overlays.default
-
-
-              # Force GCC everywhere instead of Clang
-              (final: prev: {
-
-                stdenv = prev.gccStdenv;
-
-              })
 
             ];
 
@@ -155,14 +149,19 @@
 
               micro-xrce-dds-agent.package
 
+
               px4-msgs.package
+
 
               px4-autopilot.package
 
 
+
               pkgs.colcon
 
+
               pkgs.git
+
 
               pkgs.tmux
 
@@ -174,7 +173,7 @@
             shellHook = ''
 
               echo ""
-              echo "PX4 ROS2 Humble environment (GCC)"
+              echo "PX4 ROS2 Humble environment"
               echo ""
 
 
@@ -215,7 +214,6 @@
       "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo="
 
     ];
-
 
   };
 
