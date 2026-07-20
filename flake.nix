@@ -21,38 +21,46 @@
 
       let
 
-        pkgs =
-          import nixpkgs {
+pkgs =
+  import nixpkgs {
 
-            inherit system;
+    inherit system;
 
-            overlays = [
-              nix-ros-overlay.overlays.default
-            ];
+    overlays = [
 
-            config.allowUnfree = true;
+      nix-ros-overlay.overlays.default
 
-          };
+      (final: prev: {
 
-
-        #
-        # ROS Humble package set with foonathan_memory_vendor fix
-        #
         rosPackages =
-          pkgs.rosPackages.humble.overrideScope
-            (final: prev: {
+          prev.rosPackages.overrideScope
+            (rosFinal: rosPrev: {
 
-              foonathan-memory-vendor =
-                prev.foonathan-memory-vendor.overrideAttrs
-                  (old: {
+              humble =
+                rosPrev.humble.overrideScope
+                  (final: prev: {
 
-                    NIX_CFLAGS_COMPILE =
-                      (old.NIX_CFLAGS_COMPILE or "")
-                      + " -Wno-error=deprecated-literal-operator";
+                    foonathan-memory-vendor =
+                      prev.foonathan-memory-vendor.overrideAttrs
+                        (old: {
+
+                          NIX_CFLAGS_COMPILE =
+                            (old.NIX_CFLAGS_COMPILE or "")
+                            + " -Wno-error=deprecated-literal-operator";
+
+                        });
 
                   });
 
             });
+
+      })
+
+    ];
+
+    config.allowUnfree = true;
+
+  };
 
 
         #
