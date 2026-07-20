@@ -156,17 +156,29 @@
               pkgs.gnumake
               pkgs.git
             ];
-            shellHook = ''
-              # Let cmake discover the host (apt) Gazebo Harmonic install.
-              export CMAKE_PREFIX_PATH="/usr''${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
-              export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
-              echo ""
-              echo "PX4 hybrid SITL shell: host g++ + host Gazebo Harmonic + nix python/cmake"
-              echo "  prereqs (host, one-time): gz-harmonic + build-essential via apt"
-              echo "  then, in your PX4-Autopilot checkout:"
-              echo "    make px4_sitl gz_x500"
-              echo ""
-            '';
+            shellHook =
+              (if pkgs.stdenv.isDarwin then ''
+                # macOS: discover Homebrew-installed Gazebo Harmonic.
+                if command -v brew >/dev/null 2>&1; then
+                  BREW="$(brew --prefix)"
+                  export CMAKE_PREFIX_PATH="$BREW''${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+                  export PKG_CONFIG_PATH="$BREW/lib/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+                  export DYLD_FALLBACK_LIBRARY_PATH="$BREW/lib''${DYLD_FALLBACK_LIBRARY_PATH:+:$DYLD_FALLBACK_LIBRARY_PATH}"
+                else
+                  echo "WARNING: Homebrew not found - install gz-harmonic: brew tap osrf/simulation && brew install gz-harmonic"
+                fi
+              '' else ''
+                # Linux: discover apt-installed Gazebo Harmonic under /usr.
+                export CMAKE_PREFIX_PATH="/usr''${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
+                export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
+              '') + ''
+                echo ""
+                echo "PX4 hybrid SITL shell: host compiler + host Gazebo Harmonic + nix python/cmake"
+                echo "  prereqs (one-time): gz-harmonic installed (brew on macOS, apt on Linux)"
+                echo "  then, in your PX4-Autopilot checkout:"
+                echo "    make px4_sitl gz_x500"
+                echo ""
+              '';
           };
       });
   nixConfig = {
