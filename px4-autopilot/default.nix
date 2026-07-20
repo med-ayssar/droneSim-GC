@@ -1,68 +1,42 @@
 { pkgs }:
 
-
 {
+  package = pkgs.stdenv.mkDerivation {
+    pname = "px4";
+    version = "main";
 
-package =
+    src = pkgs.fetchgit {
+      url = "https://github.com/PX4/PX4-Autopilot.git";
+      rev = "main";
+      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+      fetchSubmodules = true;
+    };
 
-pkgs.stdenv.mkDerivation {
+    nativeBuildInputs = with pkgs; [
+      gcc
+      gnumake
+      cmake
+      ninja
+      python3
+      python3Packages.jinja2
+      python3Packages.pyserial
+      python3Packages.numpy
+      python3Packages.packaging
+      git
+      bc
+      perl
+      which
+      file
+      unzip
+    ];
 
+    buildPhase = ''
+      make px4_sitl_default
+    '';
 
-pname="px4";
-
-version="main";
-
-
-src="./PX4-Autopilot";
-dontUnpack = true;
-
-
-
-
-nativeBuildInputs=[
-
- pkgs.gcc
-
- pkgs.gnumake
-
- pkgs.cmake
-
- pkgs.ninja
-
- pkgs.python3
-
-
- pkgs.python3Packages.jinja2
-
- pkgs.python3Packages.pyserial
-
- pkgs.python3Packages.numpy
-
- pkgs.python3Packages.packaging
-
-];
-
-
-
-buildPhase=''
-
-make px4_sitl_default
-
-'';
-
-
-
-installPhase=''
-
-mkdir -p $out/bin
-
-
-cp build/px4_sitl_default/bin/px4 \
-$out/bin/
-
-'';
-
-
-};
-
+    installPhase = ''
+      mkdir -p $out/bin
+      cp build/px4_sitl_default/bin/px4 $out/bin/
+    '';
+  };
 }
