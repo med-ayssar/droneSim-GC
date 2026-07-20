@@ -7,9 +7,8 @@
     nix-ros-overlay.url =
       "github:lopsided98/nix-ros-overlay/master";
 
-
-    # ROS Humble works better with this nixpkgs baseline
-    nixpkgs.follows = "nix-ros-overlay/nixpkgs";  # IMPORTANT!!!
+    nixpkgs.follows =
+      "nix-ros-overlay/nixpkgs";
 
   };
 
@@ -27,33 +26,43 @@
 
             inherit system;
 
-
             overlays = [
-
               nix-ros-overlay.overlays.default
-
             ];
-
 
             config.allowUnfree = true;
 
           };
 
 
+        rosPackages =
+          pkgs.rosPackages.humble.overrideScope
+            (final: prev: {
+
+              foonathan-memory-vendor =
+                prev.foonathan-memory-vendor.overrideAttrs
+                  (old: {
+
+                    NIX_CFLAGS_COMPILE =
+                      (old.NIX_CFLAGS_COMPILE or "")
+                      + " -Wno-error=deprecated-literal-operator";
+
+                  });
+
+            });
+
+
 
         ros2 =
-          with pkgs.rosPackages.humble;
+          with rosPackages;
           buildEnv {
 
             underlay = true;
 
-
             paths = [
 
               ros-core
-
               ros-base
-
               colcon
 
             ];
@@ -145,25 +154,17 @@
 
               ros2
 
-
               micro-xrce-dds-agent.package
-
 
               px4-msgs.package
 
-
               px4-autopilot.package
-
-
 
               pkgs.colcon
 
-
               pkgs.git
 
-
               pkgs.tmux
-
 
             ];
 
@@ -188,7 +189,6 @@
                 px4
               "
 
-
             '';
 
           };
@@ -199,13 +199,11 @@
 
   nixConfig = {
 
-
     extra-substituters = [
 
       "https://ros.cachix.org"
 
     ];
-
 
 
     extra-trusted-public-keys = [
