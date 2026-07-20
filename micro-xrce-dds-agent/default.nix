@@ -13,7 +13,7 @@ pkgs.stdenv.mkDerivation {
   version="main";
 
 
-  src=Micro-XRCE-DDS-Agent/
+  src=Micro-XRCE-DDS-Agent/;
   dontUnpack = true;
 
 
