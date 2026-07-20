@@ -11,7 +11,7 @@
 
     src = pkgs.fetchgit {
       url = "https://github.com/PX4/px4_msgs.git";
-      rev = "main";
+      rev= "refs/heads/main";
       hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
     };
 
