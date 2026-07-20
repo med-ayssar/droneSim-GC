@@ -165,6 +165,23 @@ It listens for MAVLink on **UDP 14550** and auto-connects to a running PX4 SITL 
 
 ---
 
+## One-command startup
+
+`start.sh` launches the whole stack in a 3-pane `tmux` session so you don't have to juggle terminals:
+
+- **pane 0** — PX4 SITL + Gazebo (host)
+- **pane 1** — the DDS agent inside `nix develop` on UDP 8888
+- **pane 2** — builds and runs the custom C++ node inside `nix develop`
+
+```bash
+./start.sh              # Gazebo GUI
+HEADLESS=1 ./start.sh   # headless Gazebo (recommended on WSL)
+```
+
+It installs/provides tmux automatically (via `nix shell nixpkgs#tmux` if it isn't already on `PATH`), and re-attaches to the existing `drone-sim` session instead of starting duplicates. Detach with `Ctrl-b d`; tear down with `tmux kill-session -t drone-sim`. QGroundControl (Section 7) is intentionally left out — start it separately when you want the GUI.
+
+---
+
 ## Quick reference
 
 | Step | Command | Where |
