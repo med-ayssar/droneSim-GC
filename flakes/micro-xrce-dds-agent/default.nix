@@ -35,6 +35,10 @@
 
     SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    # The libcurl backing this nixpkgs git honours CURL_CA_BUNDLE but ignores
+    # GIT_SSL_CAINFO / http.sslCAInfo, so the superbuild's git clones fail TLS
+    # verification without this. (Verified empirically: only CURL_CA_BUNDLE works.)
+    CURL_CA_BUNDLE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     NIX_CFLAGS_COMPILE = "-Wno-error=deprecated-literal-operator";
   cmakeFlags = [
     # disable CAN on non-Linux platforms
