@@ -17,7 +17,7 @@
     { self, nix-ros-overlay, nixpkgs }:
 
     nix-ros-overlay.inputs.flake-utils.lib.eachDefaultSystem
-      (system:
+    (system:
 
       let
 
@@ -37,19 +37,20 @@
 
         rosPackages =
           pkgs.rosPackages.humble.overrideScope
-            (final: prev: {
+          (final: prev: {
 
-              foonathan-memory-vendor =
-                prev.foonathan-memory-vendor.overrideAttrs
-                  (old: {
+            foonathan-memory-vendor =
+              prev.foonathan-memory-vendor.overrideAttrs
+              (old: {
 
-                    NIX_CFLAGS_COMPILE =
-                      (old.NIX_CFLAGS_COMPILE or "")
-                      + " -Wno-error=deprecated-literal-operator";
+                NIX_CFLAGS_COMPILE =
+                  (old.NIX_CFLAGS_COMPILE or "")
+                  + " -Wno-error=deprecated-literal-operator";
 
-                  });
+              });
 
-            });
+          });
+
 
 
 
@@ -61,16 +62,44 @@
 
             paths = [
 
+              # ROS 2 core
               ros-core
               ros-base
+
+              # Build tools
               colcon
+
+              # C++ ROS 2 client library
+              rclcpp
+
+              # Python client library (optional but useful)
+              rclpy
+
+              # ROS messages
+              std-msgs
+              geometry-msgs
+              sensor-msgs
+              nav-msgs
+
+              # TF support
+              tf2
+              tf2-ros
+
+              # DDS middleware
+              rmw-fastrtps-cpp
+              rmw-fastrtps-dynamic-cpp
+
+              # ROS DDS common interfaces
+              rosidl-default-generators
+              rosidl-typesupport-c
+              rosidl-typesupport-cpp
+
+              # Lifecycle nodes (common in PX4 integrations)
+              rclcpp-lifecycle
 
             ];
 
           };
-
-
-
         micro-xrce-dds-agent =
           import ./micro-xrce-dds-agent {
 
@@ -181,15 +210,15 @@
 
 
               alias start-agent="
-                MicroXRCEAgent udp4 -p 8888
+              MicroXRCEAgent udp4 -p 8888
               "
 
 
               alias start-px4="
-                px4
+              px4
               "
 
-            '';
+              '';
 
           };
 
