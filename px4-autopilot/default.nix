@@ -14,6 +14,8 @@ version="main";
 
 
 src="./PX4-Autopilot";
+dontUnpack = true;
+
 
 
 
