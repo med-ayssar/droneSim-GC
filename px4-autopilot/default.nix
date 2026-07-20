@@ -22,6 +22,7 @@
       python3Packages.pyserial
       python3Packages.numpy
       python3Packages.packaging
+      pkgs.python3Packages.kconfiglib
       git
       bc
       perl
