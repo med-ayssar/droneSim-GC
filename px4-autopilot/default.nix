@@ -31,6 +31,8 @@
     ps.packaging
     ps.pyyaml
     ps.empy
+            pkgs.gnumake
+
   ]))    unzip
     ];
 
