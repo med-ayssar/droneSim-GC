@@ -14,7 +14,7 @@ pkgs.stdenv.mkDerivation {
 
 
   src="./Micro-XRCE-DDS-Agent";
-
+  dontUnpack = true;
 
 
   nativeBuildInputs=[

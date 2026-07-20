@@ -14,6 +14,7 @@ version="main";
 
 
 src="./px4_msgs";
+dontUnpack = true;
 
 
 
