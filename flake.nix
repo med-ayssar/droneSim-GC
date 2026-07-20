@@ -184,11 +184,21 @@
                   echo "PX4-Autopilot present at deps/PX4-Autopilot"
                 fi
                 export PX4_DIR
+                # Pin the interpreter so PX4's cmake uses THIS python (the one
+                # carrying kconfiglib/empy/genmsg), not a brew/framework python
+                # that cmake's FindPython3 may otherwise prefer on macOS.
+                export PYTHON_EXECUTABLE="$(command -v python3)"
                 echo ""
                 echo "PX4 hybrid SITL shell: host compiler + host Gazebo Harmonic + nix python/cmake"
+                echo "  python: $PYTHON_EXECUTABLE"
                 echo "  prereqs (one-time): gz-harmonic installed (brew on macOS, apt on Linux)"
-                echo "  build/run:"
-                echo "    cd \"$PX4_DIR\" && make px4_sitl gz_x500"
+                echo "  build/run (first time pins the python):"
+                echo "    cd \"$PX4_DIR\""
+                echo "    cmake -S . -B build/px4_sitl_default -G Ninja \\"
+                echo "      -DCONFIG=px4_sitl_default \\"
+                echo "      -DPYTHON_EXECUTABLE=\"$PYTHON_EXECUTABLE\" \\"
+                echo "      -DPython3_EXECUTABLE=\"$PYTHON_EXECUTABLE\""
+                echo "    make px4_sitl gz_x500"
                 echo ""
               '';
           };
