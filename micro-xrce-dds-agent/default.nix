@@ -36,7 +36,7 @@
   cmakeFlags = [
     # disable CAN on non-Linux platforms
   ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
-    "-DUAGENT_BUILD_CAN=OFF"
+      "-DUAGENT_BUILD_TRANSPORT_CAN=OFF""
   ];
 
 # buildPhase = ''
