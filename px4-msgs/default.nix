@@ -13,7 +13,7 @@ pname="px4-msgs";
 version="main";
 
 
-src=./px4_msgs;
+src="./px4_msgs";
 
 
 

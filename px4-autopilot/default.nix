@@ -13,7 +13,7 @@ pname="px4";
 version="main";
 
 
-src=./PX4-Autopilot;
+src="./PX4-Autopilot";
 
 
 
