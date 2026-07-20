@@ -12,7 +12,8 @@
     src = pkgs.fetchgit {
       url = "https://github.com/eProsima/Micro-XRCE-DDS-Agent.git";
       rev = "v2.4.3";
-      hash = "sha256-nBJ+WuoZhB3+/NiYAH/l1r0BK1aFzAUfGpyOKpWC1sg=";
+      # hash = "sha256-nBJ+WuoZhB3+/NiYAH/l1r0BK1aFzAUfGpyOKpWC1sg=";
+      hash = "sha256-t2PZurWc8Kbkm3zFyNwHQea4Yj+zHWFXFqZ0E19km54=";
     };
 
 
