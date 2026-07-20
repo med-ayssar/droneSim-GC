@@ -12,7 +12,7 @@
     src = pkgs.fetchgit {
       url = "https://github.com/PX4/px4_msgs.git";
       rev= "refs/heads/main";
-      hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+      hash = "sha256-H66Ae0iZeQ+qjruLPSzS3JW5dt+U7KgVhv6YxdnlmbA=";
     };
 
 
@@ -20,14 +20,6 @@
       pkgs.colcon
       pkgs.cmake
       pkgs.python3
-      
-      (pkgs.python3.withPackages (ps: [
-        ps.setuptools
-        ps.packaging
-        ps.pyyaml
-        ps.empy
-      ]))
-
     ];
 
 
