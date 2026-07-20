@@ -172,11 +172,23 @@
                 export CMAKE_PREFIX_PATH="/usr''${CMAKE_PREFIX_PATH:+:$CMAKE_PREFIX_PATH}"
                 export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig''${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
               '') + ''
+                # Ensure PX4-Autopilot is checked out under deps/.
+                PX4_DIR="$PWD/deps/PX4-Autopilot"
+                if [ ! -d "$PX4_DIR/.git" ]; then
+                  echo "PX4-Autopilot not found - cloning into deps/PX4-Autopilot ..."
+                  mkdir -p "$PWD/deps"
+                  git clone --recursive https://github.com/PX4/PX4-Autopilot.git "$PX4_DIR" \
+                    && echo "PX4-Autopilot cloned." \
+                    || echo "WARNING: PX4-Autopilot clone failed - check network/git."
+                else
+                  echo "PX4-Autopilot present at deps/PX4-Autopilot"
+                fi
+                export PX4_DIR
                 echo ""
                 echo "PX4 hybrid SITL shell: host compiler + host Gazebo Harmonic + nix python/cmake"
                 echo "  prereqs (one-time): gz-harmonic installed (brew on macOS, apt on Linux)"
-                echo "  then, in your PX4-Autopilot checkout:"
-                echo "    make px4_sitl gz_x500"
+                echo "  build/run:"
+                echo "    cd \"$PX4_DIR\" && make px4_sitl gz_x500"
                 echo ""
               '';
           };
