@@ -26,41 +26,16 @@
 
             inherit system;
 
+
             overlays = [
 
               nix-ros-overlay.overlays.default
 
-              # Patch ROS Humble foonathan_memory_vendor
+
+              # Force GCC everywhere instead of Clang
               (final: prev: {
 
-                rosPackages =
-                  prev.rosPackages.overrideScope
-                    (rosFinal: rosPrev: {
-
-                      humble =
-                        rosPrev.humble.overrideScope
-                          (final: prev: {
-
-                            foonathan-memory-vendor =
-                              prev.foonathan-memory-vendor.overrideAttrs
-                                (old: {
-
-                                  postPatch = ''
-                                    substituteInPlace \
-                                      src/foo_mem-ext/include/foonathan/memory/memory_arena.hpp \
-                                      --replace 'operator"" _KiB' 'operator""_KiB' \
-                                      --replace 'operator"" _MiB' 'operator""_MiB' \
-                                      --replace 'operator"" _GiB' 'operator""_GiB' \
-                                      --replace 'operator"" _KB' 'operator""_KB' \
-                                      --replace 'operator"" _MB' 'operator""_MB' \
-                                      --replace 'operator"" _GB' 'operator""_GB'
-                                  '';
-
-                                });
-
-                          });
-
-                    });
+                stdenv = prev.gccStdenv;
 
               })
 
@@ -79,10 +54,13 @@
 
             underlay = true;
 
+
             paths = [
 
               ros-core
+
               ros-base
+
               colcon
 
             ];
@@ -119,6 +97,7 @@
 
 
       in {
+
 
         packages = {
 
@@ -173,6 +152,7 @@
 
               ros2
 
+
               micro-xrce-dds-agent.package
 
               px4-msgs.package
@@ -186,6 +166,7 @@
 
               pkgs.tmux
 
+
             ];
 
 
@@ -193,7 +174,7 @@
             shellHook = ''
 
               echo ""
-              echo "PX4 ROS2 Humble environment"
+              echo "PX4 ROS2 Humble environment (GCC)"
               echo ""
 
 
@@ -209,6 +190,7 @@
                 px4
               "
 
+
             '';
 
           };
@@ -219,6 +201,7 @@
 
   nixConfig = {
 
+
     extra-substituters = [
 
       "https://ros.cachix.org"
@@ -226,11 +209,13 @@
     ];
 
 
+
     extra-trusted-public-keys = [
 
       "ros.cachix.org-1:dSyZxI8geDCJrwgvCOHDoAfOm5sV1wCPjBkKL+38Rvo="
 
     ];
+
 
   };
 
