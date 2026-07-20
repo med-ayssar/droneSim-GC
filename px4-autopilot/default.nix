@@ -31,13 +31,13 @@
     ps.packaging
     ps.pyyaml
     ps.empy
-    ps.pyros-genmsg
 
 
   ]))    unzip
     ];
 
     buildPhase = ''
+      export PX4_ZENOH=OFF
       make px4_sitl_default
     '';
 
