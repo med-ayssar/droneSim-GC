@@ -29,6 +29,7 @@
     ];
 
 
+    NIX_CFLAGS_COMPILE = "-Wno-error=deprecated-literal-operator";
     buildPhase = ''
       source ${pkgs.rosPackages.humble.ros-core}/setup.bash
 
