@@ -43,7 +43,6 @@
             paths = [
               ros-core
               ros-base
-              colcon
               rclcpp
               rclpy
               std-msgs
@@ -62,9 +61,9 @@
           };
 
         micro-xrce-dds-agent =
-          import ./micro-xrce-dds-agent { inherit pkgs; };
+          import ./flakes/micro-xrce-dds-agent { inherit pkgs; };
         px4-msgs =
-          import ./px4-msgs { inherit pkgs; };
+          import ./flakes/px4-msgs { inherit pkgs; };
       in {
         # PX4/Gazebo are NOT built by Nix (Gazebo is not packaged in nixpkgs).
         # PX4-Autopilot lives as a git submodule and is built on the host via
@@ -98,7 +97,7 @@
               echo "PX4 ROS2 Humble environment"
               echo "  start-agent -> MicroXRCEAgent udp4 -p 8888"
               echo "  PX4 setup   -> ./setup.sh   (installs host deps, builds via submodule)"
-              echo "  PX4 build   -> cd PX4-Autopilot && make px4_sitl gz_x500"
+              echo "  PX4 build   -> cd services/PX4-Autopilot && make px4_sitl gz_x500"
               echo ""
               export ROS_DOMAIN_ID=0
               alias start-agent="MicroXRCEAgent udp4 -p 8888"
