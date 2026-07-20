@@ -163,6 +163,8 @@ It listens for MAVLink on **UDP 14550** and auto-connects to a running PX4 SITL 
 
 > **WSL note:** QGroundControl is a Qt GUI, so it needs a display. WSLg (Windows 11) provides one out of the box; on older setups you'll need an X server. It runs independently of the ROS 2 / DDS side — you can use it with or without the agent and custom node.
 
+> **macOS note:** nixpkgs only ships a Linux build of QGroundControl, so the dev shell omits it on Darwin. Install the official [QGroundControl `.dmg`](https://docs.qgroundcontrol.com/master/en/qgc-user-guide/getting_started/download_and_install.html) instead — it connects to PX4 SITL over UDP 14550 the same way.
+
 ---
 
 ## One-command startup
