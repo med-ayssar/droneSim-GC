@@ -1,12 +1,15 @@
 { pkgs }:
 
+let
+  inherit (pkgs) lib stdenv;
+in
 {
 
-  package = pkgs.stdenv.mkDerivation {
+  package = stdenv.mkDerivation {
 
     pname = "micro-xrce-dds-agent";
 
-    version = "main";
+    version = "2.4.3";
 
 
     src = pkgs.fetchgit {
@@ -19,57 +22,73 @@
 
     nativeBuildInputs = [
       pkgs.cmake
-        pkgs.pkg-config
-        pkgs.git
-        pkgs.cacert
-        pkgs.autoPatchelfHook
-
-    ];
+      pkgs.pkg-config
+      pkgs.git
+      pkgs.cacert
+    ]
+    # Linux: rewrite ELF RPATHs so the binary finds the bundled .so files.
+    ++ lib.optionals stdenv.isLinux [ pkgs.autoPatchelfHook ]
+    # macOS: rewrite Mach-O install names so the binary finds the bundled .dylib.
+    ++ lib.optionals stdenv.isDarwin [ pkgs.fixDarwinDylibNames ];
 
 
     buildInputs = [
       pkgs.asio
-        pkgs.openssl
-        pkgs.tinyxml-2
+      pkgs.openssl
+      pkgs.tinyxml-2
     ];
 
     SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
-    GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
-    # The libcurl backing this nixpkgs git honours CURL_CA_BUNDLE but ignores
-    # GIT_SSL_CAINFO / http.sslCAInfo, so the superbuild's git clones fail TLS
-    # verification without this. (Verified empirically: only CURL_CA_BUNDLE works.)
+    # The superbuild git-clones its deps. The libcurl backing this nixpkgs git
+    # honours CURL_CA_BUNDLE, but setting GIT_SSL_CAINFO (-> http.sslCAInfo ->
+    # CURLOPT_CAINFO) actively BREAKS TLS verification here and overrides
+    # CURL_CA_BUNDLE. So set only CURL_CA_BUNDLE and do NOT set GIT_SSL_CAINFO.
     CURL_CA_BUNDLE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     NIX_CFLAGS_COMPILE = "-Wno-error=deprecated-literal-operator";
-  cmakeFlags = [
-    # disable CAN on non-Linux platforms
-  ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+
+    cmakeFlags = [
+      # Superbuild: let the Agent's CMake fetch + build its own dependency
+      # versions (fastcdr, fastdds, foonathan_memory, spdlog) into temp_install.
+      "-DUAGENT_SUPERBUILD=ON"
+      "-DUAGENT_BUILD_EXECUTABLE=ON"
+    ] ++ lib.optionals stdenv.isDarwin [
+      # SocketCAN is Linux-only.
       "-DUAGENT_SOCKETCAN_PROFILE=OFF"
-  ];
+    ];
 
-# buildPhase = ''
-# mkdir build && \
-# cd build && \
-# cmake .. && \
-# make -j"$(nproc)" && \
-# make install
-# '';
-installPhase = ''
-  runHook preInstall
+    installPhase = ''
+      runHook preInstall
 
-  mkdir -p $out/bin $out/lib
+      mkdir -p $out/bin $out/lib
 
-  # The Agent's superbuild disables the final install step
-  # (INSTALL_COMMAND "" in cmake/SuperBuild.cmake), so the binary and its
-  # shared libraries are left in the build tree. Collect them by hand:
-  #   - MicroXRCEAgent + libmicroxrcedds_agent.so live in the build root
-  #   - fastcdr / fastdds and friends live under temp_install/*/lib
-  cp MicroXRCEAgent $out/bin/
-  cp -a libmicroxrcedds_agent.so* $out/lib/
-  find temp_install -type f \( -name '*.so' -o -name '*.so.*' \) \
-    -exec cp -a {} $out/lib/ \;
+      # The superbuild disables the final install step (INSTALL_COMMAND "" in
+      # cmake/SuperBuild.cmake), so the Agent's own artifacts are left in the
+      # build tree while its dependencies are fully installed under
+      # temp_install. Assemble a complete, consumable prefix by hand.
+      #
+      # find (no shell globs) keeps this safe when a pattern matches nothing,
+      # and the .so / .dylib split covers Linux and macOS.
 
-  runHook postInstall
-  '';
+      # 1. The MicroXRCEAgent executable.
+      find . -type f -name MicroXRCEAgent -perm -u+x \
+        -exec install -Dm755 {} $out/bin/MicroXRCEAgent \;
+
+      # 2. The Agent library + any superbuild dependency shared libraries that
+      #    were built shared (fastcdr, fastdds, ...).
+      find . -type f \( -name '*.so' -o -name '*.so.*' -o -name '*.dylib' \) \
+        -not -path '*/CMakeFiles/*' \
+        -exec cp -a {} $out/lib/ \;
+
+      # 3. The dependency install trees (headers, CMake config, static libs,
+      #    tools) so downstream consumers can find_package() them later.
+      if [ -d temp_install ]; then
+        for dep in temp_install/*/; do
+          [ -d "$dep" ] && cp -a "$dep". "$out"/
+        done
+      fi
+
+      runHook postInstall
+    '';
 
   };
 
