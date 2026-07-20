@@ -70,6 +70,18 @@ in
 
     buildPhase = ''
       export PX4_ZENOH=OFF
+      export HOME=$TMPDIR
+
+      # fetchgit strips .git, but PX4's version generation
+      # (src/lib/version/CMakeLists.txt) shells out to `git describe`.
+      # Recreate a minimal repo with a version tag so it resolves a version.
+      git init -q
+      git config user.email nix@localhost
+      git config user.name  nix
+      git add -A
+      git commit -qm "nix build" >/dev/null
+      git tag v1.15.0
+
       make px4_sitl_default
     '';
 
