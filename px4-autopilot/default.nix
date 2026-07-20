@@ -68,6 +68,11 @@ in
       unzip
     ];
 
+    # cmake is only a dependency of PX4's own Makefile-driven build; do NOT let
+    # the cmake setup-hook run a premature configurePhase (it fires before
+    # buildPhase, i.e. before the git repo below exists -> "not a git repository").
+    dontUseCmakeConfigure = true;
+
     buildPhase = ''
       export PX4_ZENOH=OFF
       export HOME=$TMPDIR
