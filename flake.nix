@@ -21,100 +21,128 @@
 
       let
 
-pkgs =
-  import nixpkgs {
+        pkgs =
+          import nixpkgs {
 
-    inherit system;
+            inherit system;
 
-    overlays = [
+            overlays = [
 
-      nix-ros-overlay.overlays.default
+              nix-ros-overlay.overlays.default
 
-      (final: prev: {
+              # Patch ROS Humble foonathan_memory_vendor
+              (final: prev: {
 
-        rosPackages =
-          prev.rosPackages.overrideScope
-            (rosFinal: rosPrev: {
+                rosPackages =
+                  prev.rosPackages.overrideScope
+                    (rosFinal: rosPrev: {
 
-              humble =
-                rosPrev.humble.overrideScope
-                  (final: prev: {
+                      humble =
+                        rosPrev.humble.overrideScope
+                          (final: prev: {
 
-                    foonathan-memory-vendor =
-                      prev.foonathan-memory-vendor.overrideAttrs
-                        (old: {
+                            foonathan-memory-vendor =
+                              prev.foonathan-memory-vendor.overrideAttrs
+                                (old: {
 
-                          NIX_CFLAGS_COMPILE =
-                            (old.NIX_CFLAGS_COMPILE or "")
-                            + " -Wno-error=deprecated-literal-operator";
+                                  postPatch = ''
+                                    substituteInPlace \
+                                      src/foo_mem-ext/include/foonathan/memory/memory_arena.hpp \
+                                      --replace 'operator"" _KiB' 'operator""_KiB' \
+                                      --replace 'operator"" _MiB' 'operator""_MiB' \
+                                      --replace 'operator"" _GiB' 'operator""_GiB' \
+                                      --replace 'operator"" _KB' 'operator""_KB' \
+                                      --replace 'operator"" _MB' 'operator""_MB' \
+                                      --replace 'operator"" _GB' 'operator""_GB'
+                                  '';
 
-                        });
+                                });
 
-                  });
+                          });
 
-            });
+                    });
 
-      })
+              })
 
-    ];
-
-    config.allowUnfree = true;
-
-  };
+            ];
 
 
-        #
-        # ROS2 Humble environment
-        #
-ros2 =
-  with pkgs.rosPackages.humble;
-  buildEnv {
-    underlay = true;
+            config.allowUnfree = true;
 
-    paths = [
-      ros-core
-      ros-base
-      colcon
-    ];
-  };
+          };
+
+
+
+        ros2 =
+          with pkgs.rosPackages.humble;
+          buildEnv {
+
+            underlay = true;
+
+            paths = [
+
+              ros-core
+              ros-base
+              colcon
+
+            ];
+
+          };
+
+
+
         micro-xrce-dds-agent =
           import ./micro-xrce-dds-agent {
+
             inherit pkgs;
+
           };
+
 
 
         px4-msgs =
           import ./px4-msgs {
+
             inherit pkgs;
+
           };
+
 
 
         px4-autopilot =
           import ./px4-autopilot {
+
             inherit pkgs;
+
           };
+
 
 
       in {
 
         packages = {
 
+
           micro-xrce-dds-agent =
             micro-xrce-dds-agent.package;
+
 
 
           px4-msgs =
             px4-msgs.package;
 
 
+
           px4 =
             px4-autopilot.package;
+
 
 
           default =
             pkgs.symlinkJoin {
 
               name = "px4-stack";
+
 
               paths = [
 
@@ -135,8 +163,10 @@ ros2 =
         devShells.default =
           pkgs.mkShell {
 
+
             name =
               "PX4 ROS2 Humble development environment";
+
 
 
             packages = [
@@ -184,6 +214,7 @@ ros2 =
           };
 
       });
+
 
 
   nixConfig = {
