@@ -91,16 +91,19 @@
               pkgs.colcon
               pkgs.git
               pkgs.tmux
+              pkgs.qgroundcontrol
             ];
             shellHook = ''
               echo ""
               echo "PX4 ROS2 Humble environment"
               echo "  start-agent -> MicroXRCEAgent udp4 -p 8888"
+              echo "  start-qgc   -> QGroundControl (MAVLink auto-connect, UDP 14550)"
               echo "  PX4 setup   -> ./setup.sh   (installs host deps, builds via submodule)"
               echo "  PX4 build   -> cd services/PX4-Autopilot && make px4_sitl gz_x500"
               echo ""
               export ROS_DOMAIN_ID=0
               alias start-agent="MicroXRCEAgent udp4 -p 8888"
+              alias start-qgc="QGroundControl"
             '';
           };
       });

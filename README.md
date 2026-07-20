@@ -8,8 +8,9 @@ The stack has four moving parts:
 2. **Micro XRCE-DDS Agent** — the bridge that turns PX4's uXRCE-DDS traffic into ROS 2 topics. Provided by the Nix flake.
 3. **px4_msgs** — the ROS 2 message definitions PX4 publishes/subscribes. Provided by the Nix flake.
 4. **px4_offboard_cpp** — our custom C++ node (`dev/src/px4_offboard_cpp`) that arms the drone and commands a takeoff via offboard control.
+5. **QGroundControl** — the ground control station GUI. Optional but handy for visualizing the vehicle, mode, and telemetry. Provided by the Nix flake.
 
-Everything talks over **UDP port 8888**, PX4's default uXRCE-DDS port.
+The ROS 2 side talks over **UDP port 8888** (PX4's default uXRCE-DDS port). QGroundControl talks **MAVLink over UDP 14550** and auto-connects to PX4 SITL — the two channels are independent.
 
 ---
 
@@ -44,13 +45,21 @@ cd drone-sim
 ./setup.sh
 ```
 
-This runs `git submodule update --init --recursive services/PX4-Autopilot`, then the matching PX4 installer for your OS (Ubuntu/Linux or macOS). Expect it to take a while and to pull in a lot of apt packages on first run.
+This fetches the PX4 submodule (recursively), then runs the matching PX4 installer for your OS (Ubuntu/Linux or macOS). Expect it to take a while and to pull in a lot of apt packages on first run.
+
+PX4-Autopilot has a large history, so on a slow or unstable connection the full-depth fetch can fail with `fetch-pack: invalid index-pack` / `early EOF`. `setup.sh` already forces HTTP/1.1, a large transfer buffer, and retries automatically. If it still fails, do a **shallow** fetch — only the pinned commits, far less data:
+
+```bash
+PX4_SHALLOW=1 ./setup.sh
+```
+
+Shallow trees build SITL fine; they just report a generic PX4 version string (no git tags). Harmless for development.
 
 ---
 
 ## 3. Enter the Nix dev shell
 
-The dev shell puts ROS 2 Humble, the DDS agent, `px4_msgs`, `colcon`, and `tmux` on your `PATH`.
+The dev shell puts ROS 2 Humble, the DDS agent, `px4_msgs`, `colcon`, `tmux`, and QGroundControl on your `PATH`.
 
 ```bash
 nix develop
@@ -140,6 +149,22 @@ colcon build --packages-select px4_offboard_cpp --cmake-args -DENABLE_ASAN=ON
 
 ---
 
+## 7. (Optional) Launch QGroundControl
+
+QGroundControl is bundled in the dev shell. In any dev-shell terminal:
+
+```bash
+QGroundControl
+# or the shortcut the dev shell defines:
+start-qgc
+```
+
+It listens for MAVLink on **UDP 14550** and auto-connects to a running PX4 SITL — no configuration needed. Use it to watch the vehicle on the map, see the flight mode / arming state, and confirm your offboard node's takeoff visually.
+
+> **WSL note:** QGroundControl is a Qt GUI, so it needs a display. WSLg (Windows 11) provides one out of the box; on older setups you'll need an X server. It runs independently of the ROS 2 / DDS side — you can use it with or without the agent and custom node.
+
+---
+
 ## Quick reference
 
 | Step | Command | Where |
@@ -149,6 +174,7 @@ colcon build --packages-select px4_offboard_cpp --cmake-args -DENABLE_ASAN=ON
 | Agent | `start-agent` (`MicroXRCEAgent udp4 -p 8888`) | terminal 2 |
 | Build node | `cd dev && colcon build --packages-select px4_offboard_cpp && source install/setup.bash` | terminal 3 |
 | Run node | `ros2 run px4_offboard_cpp offboard_control` | terminal 3 |
+| QGroundControl | `start-qgc` (`QGroundControl`) | terminal 4 (optional) |
 
 **Startup order:** PX4 SITL → agent → your node. PX4 and the agent will retry the connection, but the node needs both up before it can see the `/fmu/*` topics.
 
@@ -160,3 +186,4 @@ colcon build --packages-select px4_offboard_cpp --cmake-args -DENABLE_ASAN=ON
 - **Node sees no state / never arms** — QoS mismatch. PX4 publishes best-effort; the node already matches this. Make sure `ROS_DOMAIN_ID` is `0` in every terminal (the dev shell sets it).
 - **`px4_msgs` not found at build** — you're outside `nix develop`. Re-enter the shell so the flake-provided `px4_msgs` is on the CMake prefix path.
 - **Gazebo slow / crashes on WSL** — use `HEADLESS=1`, and work from the native Linux filesystem, not `/mnt/c`.
+- **Submodule fetch fails (`invalid index-pack` / `early EOF`)** — the PX4 history is too big for a flaky link. `setup.sh` retries with HTTP/1.1 + a large buffer; if it still dies, run `PX4_SHALLOW=1 ./setup.sh` to fetch only the pinned commits.
