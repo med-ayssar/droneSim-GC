@@ -33,7 +33,11 @@
     SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     NIX_CFLAGS_COMPILE = "-Wno-error=deprecated-literal-operator";
-
+  cmakeFlags = [
+    # disable CAN on non-Linux platforms
+  ] ++ pkgs.lib.optionals pkgs.stdenv.isDarwin [
+    "-DUAGENT_BUILD_CAN=OFF"
+  ];
 
 # buildPhase = ''
 # mkdir build && \
