@@ -45,6 +45,6 @@ services:
 
     volumes:
       # Mount your local host dev directory into the container ROS 2 workspace
-      - ./dev:/home/px4/ros2_ws/src/dev
+      - ./dev:/home/dev/
 
     command: bash
