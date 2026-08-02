@@ -1,0 +1,49 @@
+services:
+  px4-ros2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      # Specify the target stage (optional, defaults to last stage 'final')
+      target: final
+    container_name: px4-ros2
+
+    # Enables full hardware/network interface access inside Docker
+    privileged: true
+    tty: true
+    stdin_open: true
+
+    ports:
+      # --- KasmVNC Modern Web Interface ---
+      # Open http://localhost:8443 on your Mac browser
+      - "8443:8443"
+
+      # --- MAVLink Communication (UDP) ---
+      # QGroundControl Telemetry
+      - "14550:14550/udp"
+      # Offboard API (MAVROS / MAVSDK / ROS 2)
+      - "14540:14540/udp"
+      # Simulator MAVLink Bridge
+      - "14560:14560/udp"
+
+      # --- Micro XRCE-DDS Agent (PX4 <-> ROS 2 Bridge) ---
+      - "8888:8888/udp"
+
+      # --- ROS 2 DDS Discovery ---
+      - "7400:7400/udp"
+      - "7401:7401/udp"
+
+    environment:
+      - DISPLAY=:1
+      - ROS_DOMAIN_ID=0
+      - ROS_LOCALHOST_ONLY=0
+      - PX4_SIM_HOST_ADDR=127.0.0.1
+      - QT_X11_NO_MITSHM=1
+      # Optimizes software rendering thread allocation for Gazebo on Mac
+      - LP_NUM_THREADS=8
+      - LIBGL_ALWAYS_SOFTWARE=1
+
+    volumes:
+      # Mount your local host dev directory into the container ROS 2 workspace
+      - ./dev:/home/px4/ros2_ws/src/dev
+
+    command: bash

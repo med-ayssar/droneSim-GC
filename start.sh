@@ -1,62 +1,119 @@
 #!/usr/bin/env bash
-# Launch the full stack in a 3-pane tmux session:
-#   pane 0  PX4 SITL + Gazebo        (host toolchain, built by ./setup.sh)
-#   pane 1  Micro XRCE-DDS Agent      (inside the Nix dev shell, UDP 8888)
-#   pane 2  custom C++ node           (nix: colcon build + ros2 run)
-#
-# Usage:
-#   ./start.sh              # Gazebo GUI
-#   HEADLESS=1 ./start.sh   # headless Gazebo (recommended on WSL)
+
 set -euo pipefail
 
+SESSION="px4-stack"
+IMAGE="drone-sim-px4-ros2:latest"
+CONTAINER="px4-ros2"
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$ROOT"
 
-SESSION="drone-sim"
+echo "==> Checking Docker container..."
 
-# --- Ensure tmux is available -------------------------------------------------
-# The dev shell ships tmux, but this script runs on the host before entering it.
-# If tmux is missing, re-exec ourselves inside a throwaway Nix shell that provides
-# it (this repo already requires Nix). Fall back to a clear error otherwise.
-if ! command -v tmux >/dev/null 2>&1; then
-  if command -v nix >/dev/null 2>&1; then
-    echo "==> tmux not found - relaunching inside 'nix shell nixpkgs#tmux'..."
-    exec nix shell nixpkgs#tmux --command "$0" "$@"
-  fi
-  echo "ERROR: tmux is not installed and Nix is unavailable to provide it." >&2
-  echo "       Install tmux (e.g. 'sudo apt install tmux') and re-run." >&2
+# --------------------------------------------------
+# Check if container is running
+# --------------------------------------------------
+
+RUNNING=$(docker ps \
+  --filter "name=^${CONTAINER}$" \
+  --filter "ancestor=${IMAGE}" \
+  --format "{{.Names}}")
+
+if [ -z "$RUNNING" ]; then
+
+  echo "==> Container not running. Starting Docker compose..."
+
+  cd "$ROOT"
+
+  docker compose up --build -d
+
+  echo "==> Waiting for container startup..."
+
+  sleep 5
+
+else
+  echo "==> Container already running: $RUNNING"
+fi
+
+# --------------------------------------------------
+# Check container exists
+# --------------------------------------------------
+
+if ! docker ps --format "{{.Names}}" | grep -q "^${CONTAINER}$"; then
+  echo "ERROR: Container $CONTAINER is not running"
   exit 1
 fi
 
-# --- Reuse an existing session instead of stacking duplicates -----------------
+# --------------------------------------------------
+# Kill old tmux session
+# --------------------------------------------------
+
 if tmux has-session -t "$SESSION" 2>/dev/null; then
-  echo "==> Session '$SESSION' already running - attaching."
+  echo "==> Existing tmux session found"
   exec tmux attach -t "$SESSION"
 fi
 
-# --- Build the PX4 make command (optionally headless) -------------------------
-PX4_CMD="make px4_sitl gz_x500"
-if [ "${HEADLESS:-0}" = "1" ]; then
-  PX4_CMD="$PX4_CMD HEADLESS=1"
-fi
+# --------------------------------------------------
+# Create tmux windows
+# --------------------------------------------------
 
-# --- Create the layout, capturing pane IDs so send-keys is order-independent --
-p0="$(tmux new-session -d -s "$SESSION" -c "$ROOT" -P -F '#{pane_id}')"
-p1="$(tmux split-window -h -t "$p0" -c "$ROOT" -P -F '#{pane_id}')"
-p2="$(tmux split-window -v -t "$p1" -c "$ROOT" -P -F '#{pane_id}')"
-tmux select-layout -t "$SESSION" tiled
+tmux new-session \
+  -d \
+  -s "$SESSION" \
+  -n "PX4"
 
-# pane 0: PX4 SITL + Gazebo (host shell - uses deps from ./setup.sh, NOT Nix)
-tmux send-keys -t "$p0" \
-  "cd services/PX4-Autopilot && $PX4_CMD" C-m
+# --------------------------------------------------
+# Window 0: PX4 SITL
+# --------------------------------------------------
 
-# pane 1: DDS agent inside the Nix dev shell, bound to PX4's default UDP port
-tmux send-keys -t "$p1" \
-  "nix develop \"$ROOT\" --command MicroXRCEAgent udp4 -p 8888" C-m
+tmux send-keys \
+  -t "$SESSION:PX4" \
+  "docker exec -it $CONTAINER bash -c 'cd /home/px4/PX4-Autopilot && bash" \
+  C-m
 
-# pane 2: build + run our C++ node inside the Nix dev shell
-tmux send-keys -t "$p2" \
-  "cd dev && nix develop \"$ROOT\" --command bash -c 'export ROS_DOMAIN_ID=0; colcon build --packages-select px4_offboard_cpp && source install/setup.bash && ros2 run px4_offboard_cpp offboard_control'" C-m
+# --------------------------------------------------
+# Window 1: DDS Agent
+# --------------------------------------------------
 
-tmux select-pane -t "$p0"
+tmux new-window \
+  -t "$SESSION" \
+  -n "DDS"
+
+tmux send-keys \
+  -t "$SESSION:DDS" \
+  "docker exec -it $CONTAINER bash -c 'MicroXRCEAgent udp4 -p 8888' && bash" \
+  C-m
+
+# --------------------------------------------------
+# Window 2: ROS2 Build + Node
+# --------------------------------------------------
+
+tmux new-window \
+  -t "$SESSION" \
+  -n "ROS2"
+
+tmux send-keys \
+  -t "$SESSION:ROS2" \
+  "docker exec -it $CONTAINER bash -c 'source /opt/ros/humble/setup.bash && cd /workspace/ros_ws && colcon build --symlink-install --event-handlers console_direct+ && source install/setup.bash && ros2 run px4_offboard_cpp offboard_control'" \
+  C-m
+
+# --------------------------------------------------
+# Window 3: Debug shell
+# --------------------------------------------------
+
+tmux new-window \
+  -t "$SESSION" \
+  -n "SHELL"
+
+tmux send-keys \
+  -t "$SESSION:SHELL" \
+  "docker exec -it $CONTAINER bash" \
+  C-m
+
+# --------------------------------------------------
+# Attach
+# --------------------------------------------------
+
+tmux select-window -t "$SESSION:PX4"
+
 exec tmux attach -t "$SESSION"
