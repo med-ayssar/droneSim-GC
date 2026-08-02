@@ -8,14 +8,17 @@ services:
     container_name: px4-ros2
     network_mode: host
 
+
     # Enables full hardware/network interface access inside Docker
     privileged: true
     tty: true
     stdin_open: true
 
     ports:
+      # --- Remote SSH (Zed / VSCode) ---
+      - "2222:22"
+
       # --- KasmVNC Modern Web Interface ---
-      # Open http://localhost:8443 on your Mac browser
       - "8443:8443"
 
       # --- MAVLink Communication (UDP) ---
@@ -45,6 +48,6 @@ services:
 
     volumes:
       # Mount your local host dev directory into the container ROS 2 workspace
-      - ./dev:/home/dev/
+      - ./packages:/home/dev/
 
     command: bash
