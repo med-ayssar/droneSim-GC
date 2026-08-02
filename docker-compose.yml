@@ -6,6 +6,7 @@ services:
       # Specify the target stage (optional, defaults to last stage 'final')
       target: final
     container_name: px4-ros2
+    network_mode: host
 
     # Enables full hardware/network interface access inside Docker
     privileged: true

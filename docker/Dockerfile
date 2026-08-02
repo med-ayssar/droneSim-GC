@@ -159,36 +159,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  USER root
 
 # Dependencies required by the AppImage
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        libfuse2 \
-        libxcb-xinerama0 \
-        libxkbcommon-x11-0 \
-        libxcb-cursor0 \
-        libxcb-icccm4 \
-        libxcb-image0 \
-        libxcb-keysyms1 \
-        libxcb-render-util0 \
-        libxcb-shape0 \
-        libxkbcommon0 \
-        gstreamer1.0-plugins-bad \
-        gstreamer1.0-libav \
-        gstreamer1.0-gl \
-        libpulse0 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Download QGroundControl AppImage
-RUN mkdir -p /opt/qgroundcontrol && \
-    cd /opt/qgroundcontrol && \
-    wget -q https://d176tv9ibo4jno.cloudfront.net/latest/QGroundControl-x86_64.AppImage \
-         -O QGroundControl.AppImage && \
-    chmod +x QGroundControl.AppImage && \
-    chown -R px4:px4 /opt/qgroundcontrol
-
-# Optional: create a convenient launcher
-RUN echo '#!/bin/bash\n/opt/qgroundcontrol/QGroundControl.AppImage --appimage-extract-and-run "$@"' \
-        > /usr/local/bin/qgroundcontrol && \
-    chmod +x /usr/local/bin/qgroundcontrol
-
 # ===================ge==========================================================
 # Build Micro XRCE DDS Agent
 # =============================================================================
@@ -274,23 +244,51 @@ COPY --chown=px4:px4 \
 # KasmVNC desktop startup
 # =============================================================================
 
-# Create KasmVNC user + password non-interactively (run as px4 or fix ownership later)
-USER px4
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends expect \
+    && rm -rf /var/lib/apt/lists/*
+# -------------------------------------------------
+# 1. Create KasmVNC user + config (non-interactive)
+# -------------------------------------------------
+RUN cat > /tmp/create_kasm_user.exp <<'EOF'
+#!/usr/bin/expect -f
+
+spawn su - px4 -c "vncpasswd -u px4 -w -r"
+
+expect "Password:"
+send "px4px4\r"
+
+expect "Verify:"
+send "px4px4\r"
+
+expect eof
+EOF
+
+RUN chmod +x /tmp/create_kasm_user.exp && \
+    /tmp/create_kasm_user.exp && \
+    rm /tmp/create_kasm_user.exp
+
 RUN mkdir -p /home/px4/.vnc && \
     cat <<'EOF' > /home/px4/.vnc/kasmvnc.yaml
 network:
   protocol: http
-  interface: 0.0.0.0
   websocket_port: 8443
   ssl:
     require_ssl: false
+
+logging:
+  level: 30
 desktop:
   resolution:
     width: 1600
     height: 900
+
 EOF
 
-# Your existing xstartup (this is good)
+RUN chown -R px4:px4 /home/px4/.vnc
+# -------------------------------------------------
+# 2. xstartup for XFCE
+# -------------------------------------------------
 RUN cat <<'EOF' > /home/px4/.vnc/xstartup
 #!/bin/bash
 export DISPLAY=:1
@@ -304,7 +302,9 @@ EOF
 RUN chmod +x /home/px4/.vnc/xstartup && \
     chown -R px4:px4 /home/px4/.vnc
 
-user root
+# -------------------------------------------------
+# 3. Entrypoint (completely non-interactive)
+# -------------------------------------------------
 RUN cat <<'EOF' > /usr/local/bin/entrypoint.sh
 #!/bin/bash
 set -e
@@ -312,34 +312,31 @@ set -e
 export DISPLAY=:1
 export HOME=/home/px4
 
-# Clean up leftover locks
+# Create .Xauthority if missing
+touch /home/px4/.Xauthority
+chmod 600 /home/px4/.Xauthority
+
+
+# Clean old locks
 rm -f /tmp/.X1-lock
 rm -rf /tmp/.X11-unix/X1
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 
-touch /home/px4/.Xauthority
-chmod 600 /home/px4/.Xauthority
-chown px4:px4 /home/px4/.Xauthority
-# Start KasmVNC non-interactively
-# -select-de xfce forces XFCE and uses your xstartup
+# Start KasmVNC
 kasmvncserver :1 \
     -select-de xfce \
     -websocketport 8443 \
     -disableBasicAuth \
     -sslOnly 0 \
     -geometry 1600x900 \
-    -depth 24
+    -depth 24&
 
-sleep 3
+sleep 4
 exec "$@"
 EOF
 
 RUN chmod +x /usr/local/bin/entrypoint.sh
-
-
-
-
 
 USER px4
 WORKDIR /home/px4/ros2_ws
