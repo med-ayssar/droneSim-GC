@@ -58,6 +58,6 @@ services:
       # WSLg runtime dir
       - /mnt/wslg:/mnt/wslg:rw
 
-      - ./packages:/home/dev/
+      - ./packages:/home/drone/packages
 
     command: bash

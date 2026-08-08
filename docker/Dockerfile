@@ -35,9 +35,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ssl-cert \
         openssh-server \
     && rm -rf /var/lib/apt/lists/*
-COPY cert/zscaler.crt /usr/local/share/ca-certificates/zscaler.crt
+# COPY cert/zscaler.crt /usr/local/share/ca-certificates/zscaler.crt
 
-RUN update-ca-certificates
+# RUN update-a-certificates
 # RUN --mount=type=secret,id=zscaler,target=/usr/local/share/ca-certificates/zscaler.crt \
 #     update-ca-certificates
 
@@ -105,19 +105,22 @@ ARG USERNAME=drone
 USER $USERNAME
 WORKDIR /home/$USERNAME
 
+RUN mkdir Tools
+
 RUN git clone \
     --recursive \
     --depth 1 \
-    https://github.com/PX4/PX4-Autopilot.git \
-    /home/$USERNAME/ros/deps/src/PX4-Autopilot
-RUN mkdir -p /home/$USERNAME/ros/deps/src \
-    && git clone \
-    https://github.com/PX4/px4_msgs.git \
-    /home/$USERNAME/ros2/deps/src/px4_msgs
+    https://github.com/PX4/PX4-Autopilot.git ./Tools/PX4-Autopilot
+
+ Run   git clone \
+    https://github.com/PX4/px4_msgs.git ./Tools/px4_msgs
+
 RUN git clone \
     -b v2.4.3 \
     https://github.com/eProsima/Micro-XRCE-DDS-Agent.git \
     /tmp/Micro-XRCE-DDS-Agent
+
+RUN pwd && ls -al
 # =============================================================================
 # Dependencies
 # =============================================================================
@@ -157,11 +160,14 @@ RUN cmake .. \
 FROM deps AS build-px4
 ARG USERNAME=drone
 USER $USERNAME
+RUN mkdir -p /home/$USERNAME/Tools
+
 COPY --chown=$USERNAME:$USERNAME \
      --from=repo-cloner \
-     /home/$USERNAME/ros/deps/src/PX4-Autopilot \
-     /home/$USERNAME/ros/deps/src/PX4-Autopilot
-WORKDIR /home/$USERNAME/ros/deps/src/PX4-Autopilot
+     /home/$USERNAME/Tools/PX4-Autopilot \
+     /home/$USERNAME/Tools/PX4-Autopilot
+
+WORKDIR /home/$USERNAME/Tools/PX4-Autopilot
 RUN python3 -m venv .venv \
     && source .venv/bin/activate \
     && pip install -r Tools/setup/requirements.txt \
@@ -178,12 +184,12 @@ COPY --from=build-dds \
 RUN ldconfig
 COPY --chown=$USERNAME:$USERNAME \
      --from=build-px4 \
-     /home/$USERNAME/ros/deps/src/PX4-Autopilot \
-     /home/$USERNAME/ros/deps/src/PX4-Autopilot
+     /home/$USERNAME/Tools/PX4-Autopilot \
+     /home/$USERNAME/Tools/PX4-Autopilot
 COPY --chown=$USERNAME:$USERNAME \
      --from=repo-cloner \
-     /home/$USERNAME/ros/deps/src \
-     /home/$USERNAME/ros/deps/src
+     /home/$USERNAME/Tools \
+     /home/$USERNAME/Tools
 # =============================================================================
 # KasmVNC desktop startup
 # =============================================================================
@@ -307,15 +313,17 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 
 USER $USERNAME
-WORKDIR /home/$USERNAME/ros2_ws
+WORKDIR /home/$USERNAME/Tools
 RUN source /opt/ros/humble/setup.bash \
-    && colcon build --symlink-install \
-       --packages-select px4_msgs
+    && colcon build --install-base $PWD/install/px4_msgs \
+       --packages-select px4_msgs \
+    && rm -rf build log px4_msgs
 RUN echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc \
-    && echo "source /home/$USERNAME/ros2_ws/install/setup.bash" >> /home/$USERNAME/.bashrc \
+    && echo "source /home/$USERNAME/Tools/install/px4_msgs/setup.bash" >> /home/$USERNAME/.bashrc \
     && echo "export DISPLAY=:1  # KasmVNC; use 'export DISPLAY=:0' for WSL/Windows display" >> /home/$USERNAME/.bashrc \
     && echo "if [ -f ~/.bashrc ]; then . ~/.bashrc; fi" >> /home/$USERNAME/.profile
-WORKDIR /home
+
+WORKDIR /home/$USERNAME
 EXPOSE 22
 EXPOSE 8443
 EXPOSE 14540/udp
