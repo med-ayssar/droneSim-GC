@@ -1,0 +1,73 @@
+{
+  "name": "drone-sim (PX4 + ROS 2 Humble)",
+  "dockerComposeFile": [
+    "docker-compose.yml"
+  ],
+  "service": "px4-ros2",
+  "workspaceFolder": "/workspaces/drone-sim",
+  "remoteUser": "drone",
+  "shutdownAction": "stopCompose",
+  "overrideCommand": false,
+  "forwardPorts": [
+    2222,
+    8443,
+    14540,
+    14550,
+    14560,
+    8888,
+    7400,
+    7401
+  ],
+  "portsAttributes": {
+    "8443": {
+      "label": "KasmVNC Desktop",
+      "onAutoForward": "notify"
+    },
+    "2222": {
+      "label": "SSH",
+      "onAutoForward": "silent"
+    },
+    "14550": {
+      "label": "MAVLink QGC",
+      "onAutoForward": "silent"
+    },
+    "14540": {
+      "label": "MAVLink Offboard",
+      "onAutoForward": "silent"
+    },
+    "8888": {
+      "label": "Micro XRCE-DDS",
+      "onAutoForward": "silent"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cmake-tools",
+        "ms-python.python",
+        "ms-iot.vscode-ros",
+        "twxs.cmake",
+        "streetsidesoftware.code-spell-checker"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.cwd": "/workspaces/drone-sim",
+        "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+        "cmake.configureOnOpen": false,
+        "python.defaultInterpreterPath": "/usr/bin/python3"
+      }
+    }
+  },
+  "containerEnv": {
+    "DISPLAY": ":1",
+    "ROS_DOMAIN_ID": "0",
+    "ROS_LOCALHOST_ONLY": "0",
+    "PX4_SIM_HOST_ADDR": "127.0.0.1",
+    "QT_X11_NO_MITSHM": "1",
+    "LIBGL_ALWAYS_SOFTWARE": "1",
+    "LP_NUM_THREADS": "8"
+  },
+  "postCreateCommand": "bash -lc 'source /opt/ros/humble/setup.bash && echo \"Dev container ready: ROS 2 Humble + PX4 SITL\" && echo \"Workspace: /workspaces/drone-sim  |  PX4: ~/Tools/PX4-Autopilot  |  packages: ~/packages\"'",
+  "postStartCommand": "bash -lc 'source /opt/ros/humble/setup.bash 2>/dev/null; true'"
+}

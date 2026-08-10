@@ -1,0 +1,39 @@
+# Dev Container compose — reuses docker/Dockerfile without WSL-only binds.
+# For bare `docker compose up` on WSL (with WSLg display mounts), use the
+# root docker-compose.yml instead.
+services:
+  px4-ros2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      target: final
+    container_name: px4-ros2-dev
+    privileged: true
+    tty: true
+    stdin_open: true
+    # Keep the container alive for the VS Code / Cursor server.
+    # Image ENTRYPOINT still starts KasmVNC; this replaces CMD only.
+    command: sleep infinity
+    environment:
+      - DISPLAY=:1
+      - ROS_DOMAIN_ID=0
+      - ROS_LOCALHOST_ONLY=0
+      - PX4_SIM_HOST_ADDR=127.0.0.1
+      - QT_X11_NO_MITSHM=1
+      - LP_NUM_THREADS=8
+      - LIBGL_ALWAYS_SOFTWARE=1
+    ports:
+      - "2222:22"
+      - "8443:8443"
+      - "14550:14550/udp"
+      - "14540:14540/udp"
+      - "14560:14560/udp"
+      - "8888:8888/udp"
+      - "7400:7400/udp"
+      - "7401:7401/udp"
+    volumes:
+      # Full repo for the IDE workspace (do not mount over /home/drone —
+      # that would hide PX4-Autopilot, px4_msgs install, and .vnc from the image)
+      - ..:/workspaces/drone-sim:cached
+      # Same packages path as root docker-compose.yml for existing workflows
+      - ../packages:/home/drone/packages:cached

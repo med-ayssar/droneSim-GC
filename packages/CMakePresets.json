@@ -1,0 +1,75 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "$env{DRONE_PKG_BUILD_DIR}",
+      "cacheVariables": {
+        "CMAKE_INSTALL_PREFIX": "$env{DRONE_PKG_INSTALL_DIR}",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_C_COMPILER": "/usr/bin/gcc-13",
+        "CMAKE_CXX_COMPILER": "/usr/bin/g++-13",
+        "CMAKE_CXX_STANDARD": "20",
+        "CMAKE_CXX_STANDARD_REQUIRED": "ON",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "BUILD_TESTING": "OFF"
+      },
+      "environment": {
+        "CMAKE_BUILD_PARALLEL_LEVEL": "$penv{CMAKE_BUILD_PARALLEL_LEVEL}"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Unoptimized build with full debug symbols",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release",
+      "description": "Optimized release build",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "displayName": "Build Debug"
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "displayName": "Build Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "debug",
+      "configurePreset": "debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

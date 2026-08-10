@@ -3,6 +3,10 @@ build/
 install/
 log/
 
+# packages/pkg layout (cmake preset builds)
+packages/cache/
+packages/install/
+
 # Python & C++ compilation artifacts
 __pycache__/
 *.pyc

@@ -35,18 +35,35 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ssl-cert \
         openssh-server \
     && rm -rf /var/lib/apt/lists/*
-# COPY cert/zscaler.crt /usr/local/share/ca-certificates/zscaler.crt
 
-# RUN update-a-certificates
-# RUN --mount=type=secret,id=zscaler,target=/usr/local/share/ca-certificates/zscaler.crt \
-#     update-ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    && add-apt-repository ppa:ubuntu-toolchain-r/test \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        gcc-13 \
+        g++-13 \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-ENV GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
-
-ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
-ENV SSL_CERT_DIR=/etc/ssl/certs
-ENV GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    ca-certificates \
+    && wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh \
+    && chmod +x /tmp/llvm.sh \
+    && /tmp/llvm.sh 18 \
+    && apt-get install -y --no-install-recommends \
+        clang-18 \
+        clangd-18 \
+        clang-format-18 \
+        clang-tidy-18 \
+    && rm -f /tmp/llvm.sh \
+    && rm -rf /var/lib/apt/lists/*
+# ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+# ENV GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
+#
+# ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+# ENV SSL_CERT_DIR=/etc/ssl/certs
+# ENV GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
 
 #
 # Configure SSH server directory and options
@@ -134,12 +151,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-humble-rosidl-default-generators \
         ros-humble-rosidl-default-runtime \
         python3-lark \
+        vim \
+        zsh \
+        clang-format \
     && pip3 install \
         empy==3.3.4 \
         pyros-genmsg \
         lark \
     && rm -rf /var/lib/apt/lists/*
-USER root
+
 # Dependencies required by the AppImage
 # =============================================================================
 # Build Micro XRCE DDS Agent
@@ -198,26 +218,6 @@ USER root
 RUN apt-get update && apt-get install -y --no-install-recommends expect \
     && rm -rf /var/lib/apt/lists/*
 
-USER $USERNAME
-# Generate keys and config at container build time
-RUN mkdir -p /home/$USERNAME/.ssh/host_keys \
-    && ssh-keygen -f /home/$USERNAME/.ssh/host_keys/ssh_host_rsa_key -N "" -t rsa \
-    && ssh-keygen -f /home/$USERNAME/.ssh/host_keys/ssh_host_ed25519_key -N "" -t ed25519 \
-    && chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
-# 2. Write custom sshd_config file to the user's home directory
-RUN cat <<EOF > /home/$USERNAME/.ssh/sshd_config
-Port 22
-HostKey /home/$USERNAME/.ssh/host_keys/ssh_host_rsa_key
-HostKey /home/$USERNAME/.ssh/host_keys/ssh_host_ed25519_key
-AuthorizedKeysFile /home/$USERNAME/.ssh/authorized_keys
-UsePAM no
-StrictModes no
-PasswordAuthentication yes
-PidFile /home/$USERNAME/.ssh/sshd.pid
-EOF
-
-USER root
-# -------------------------------------------------
 # 1. Create KasmVNC user + config (non-interactive)
 # -------------------------------------------------
 RUN cat > /tmp/create_kasm_user.exp <<EOF
@@ -281,10 +281,6 @@ RUN cat <<EOF > /usr/local/bin/entrypoint.sh
 #!/bin/bash
 set -e
 
-# Start SSH daemon in the background
-#ssh-keygen -A
-/usr/sbin/sshd -f /home/$USERNAME/.ssh/sshd_config
-
 export DISPLAY=:1
 export HOME=/home/$USERNAME
 
@@ -323,11 +319,21 @@ RUN echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc \
     && echo "export DISPLAY=:1  # KasmVNC; use 'export DISPLAY=:0' for WSL/Windows display" >> /home/$USERNAME/.bashrc \
     && echo "if [ -f ~/.bashrc ]; then . ~/.bashrc; fi" >> /home/$USERNAME/.profile
 
+# =============================================================================
+# Post-setup: zsh as primary shell + Oh My Zsh plugins (autocomplete/suggestions)
+# =============================================================================
+USER root
+COPY docker/post.setup.sh /tmp/post.setup.sh
+RUN chmod +x /tmp/post.setup.sh \
+    && USERNAME=$USERNAME /tmp/post.setup.sh \
+    && rm -f /tmp/post.setup.sh
+
 WORKDIR /home/$USERNAME
-EXPOSE 22
+USER $USERNAME
+EXPOSE 2222
 EXPOSE 8443
 EXPOSE 14540/udp
 EXPOSE 14550/udp
 EXPOSE 8888/udp
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
-CMD ["bash"]
+CMD ["zsh"]

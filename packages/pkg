@@ -1,0 +1,548 @@
+#!/usr/bin/env bash
+# =============================================================================
+# pkg — build / run / navigate ROS 2 (ament) packages under packages/
+#
+# Layout for package name X:
+#   source : packages/**/X   (dir with CMakeLists.txt + package.xml)
+#   build  : packages/cache/X
+#   install: packages/install/X
+#   logs   : packages/cache/logs/X
+#
+# Uses packages/CMakePresets.json presets: debug | release
+#
+# Usage:
+#   pkg list
+#   pkg build [--preset debug|release] [all|PACKAGE...]
+#   pkg run   PACKAGE [BINARY] [-- ARGS...]
+#   pkg cd    PACKAGE          # print cd command; use: eval "$(pkg cd X)"
+#   pkg path  PACKAGE          # source path
+#   pkg goto  PACKAGE          # open a shell in the source tree
+#   pkg clean [all|PACKAGE...]
+#   pkg help
+# =============================================================================
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PACKAGES_ROOT="${SCRIPT_DIR}"
+PRESETS_FILE="${PACKAGES_ROOT}/CMakePresets.json"
+CACHE_ROOT="${PACKAGES_ROOT}/build"
+INSTALL_ROOT="${PACKAGES_ROOT}/install"
+LOGS_ROOT="${CACHE_ROOT}/logs"
+
+# Default preset
+PRESET="${PKG_PRESET:-debug}"
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+die()  { echo "error: $*" >&2; exit 1; }
+info() { echo "==> $*" >&2; }
+note() { echo "    $*" >&2; }
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# Discover packages: directories under packages/ that have CMakeLists.txt + package.xml.
+# Prints: name<TAB>abs_source_path
+discover_packages() {
+  local dir name
+  while IFS= read -r -d '' xml; do
+    dir="$(dirname "$xml")"
+    [[ -f "${dir}/CMakeLists.txt" ]] || continue
+    # Skip nested build/install/cache trees
+    case "$dir" in
+      */build|*/build/*|*/install|*/install/*|*/cache|*/cache/*|*/log|*/log/*) continue ;;
+    esac
+    name="$(basename "$dir")"
+    # Prefer <name> from package.xml when present
+    if have python3; then
+      local parsed
+      parsed="$(python3 - "$xml" <<'PY' 2>/dev/null || true
+import sys, xml.etree.ElementTree as ET
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+    n = root.find("name")
+    print(n.text.strip() if n is not None and n.text else "")
+except Exception:
+    pass
+PY
+)"
+      [[ -n "${parsed}" ]] && name="${parsed}"
+    fi
+    printf '%s\t%s\n' "$name" "$dir"
+  done < <(find "${PACKAGES_ROOT}" \
+    \( -path "${CACHE_ROOT}" -o -path "${INSTALL_ROOT}" -o -name build -o -name install -o -name log \) -prune \
+    -o -name package.xml -print0 2>/dev/null | sort -z)
+}
+
+package_map() {
+  # Populate assoc-like lines name -> path (last wins on duplicate names)
+  discover_packages
+}
+
+resolve_package() {
+  local want="$1" name path found=""
+  while IFS=$'\t' read -r name path; do
+    if [[ "$name" == "$want" ]]; then
+      found="$path"
+    fi
+  done < <(discover_packages)
+  [[ -n "$found" ]] || die "unknown package '${want}'. Run: pkg list"
+  printf '%s\n' "$found"
+}
+
+list_package_names() {
+  discover_packages | cut -f1
+}
+
+build_dir_for()   { printf '%s/%s\n' "${CACHE_ROOT}"   "$1"; }
+install_dir_for() { printf '%s/%s\n' "${INSTALL_ROOT}" "$1"; }
+log_dir_for()     { printf '%s/%s\n' "${LOGS_ROOT}"    "$1"; }
+
+ensure_preset_link() {
+  local src="$1"
+  local link="${src}/CMakePresets.json"
+  if [[ -L "$link" ]]; then
+    local target
+    target="$(readlink "$link" 2>/dev/null || true)"
+    if [[ "$target" == "${PRESETS_FILE}" || "$target" == "$(basename "${PRESETS_FILE}")" ]]; then
+      return 0
+    fi
+  fi
+  if [[ -f "$link" && ! -L "$link" ]]; then
+    # Keep package-local presets; write a sibling user presets include if possible.
+    # For shared workflow we still export env vars and call cmake with -B/-DCMAKE_*.
+    return 0
+  fi
+  ln -sfn "${PRESETS_FILE}" "$link"
+}
+
+ensure_ninja_or_fallback() {
+  if have ninja; then
+    return 0
+  fi
+  # CMakePresets pin Ninja; if missing, caller falls back to plain cmake -G.
+  return 1
+}
+
+timestamp() { date +%Y%m%d_%H%M%S; }
+
+# Interactive multi-select of packages. Prints selected names.
+pick_packages() {
+  local names=()
+  mapfile -t names < <(list_package_names)
+  [[ ${#names[@]} -gt 0 ]] || die "no packages found under ${PACKAGES_ROOT}"
+
+  if have fzf; then
+    printf '%s\n' "${names[@]}" \
+      | fzf -m --prompt="package(s)> " --header="TAB multi-select, Enter confirm (or pick 'all')" \
+      || true
+    return 0
+  fi
+
+  echo "Packages:" >&2
+  local i=1
+  for n in "${names[@]}"; do
+    printf '  %2d) %s\n' "$i" "$n" >&2
+    i=$((i + 1))
+  done
+  printf '  %2d) %s\n' "$i" "all" >&2
+  echo -n "Select number(s) (space-separated), or 'all': " >&2
+  local reply
+  read -r reply
+  if [[ "$reply" == "all" || "$reply" == "$i" ]]; then
+    printf '%s\n' "${names[@]}"
+    return 0
+  fi
+  local sel
+  for sel in $reply; do
+    if [[ "$sel" =~ ^[0-9]+$ ]] && (( sel >= 1 && sel < i )); then
+      printf '%s\n' "${names[$((sel - 1))]}"
+    else
+      die "invalid selection: ${sel}"
+    fi
+  done
+}
+
+# -----------------------------------------------------------------------------
+# Commands
+# -----------------------------------------------------------------------------
+cmd_list() {
+  local name path
+  printf '%-24s %s\n' "PACKAGE" "SOURCE"
+  printf '%-24s %s\n' "-------" "------"
+  while IFS=$'\t' read -r name path; do
+    printf '%-24s %s\n' "$name" "${path#${PACKAGES_ROOT}/}"
+  done < <(discover_packages)
+}
+
+cmd_paths() {
+  local pkg="$1"
+  local src build install logs
+  src="$(resolve_package "$pkg")"
+  build="$(build_dir_for "$pkg")"
+  install="$(install_dir_for "$pkg")"
+  logs="$(log_dir_for "$pkg")"
+  cat <<EOF
+package:  ${pkg}
+source:   ${src}
+build:    ${build}
+install:  ${install}
+logs:     ${logs}
+preset:   ${PRESET}
+EOF
+}
+
+cmd_path() {
+  resolve_package "$1"
+}
+
+# Print a shell snippet so: eval "$(pkg cd cpp_pubsub)"
+cmd_cd() {
+  local target="${1:-}"
+  local kind="source"
+  if [[ "$target" == "--build" || "$target" == "--install" || "$target" == "--logs" ]]; then
+    kind="${target#--}"
+    target="${2:-}"
+  fi
+  [[ -n "$target" ]] || die "usage: pkg cd [--build|--install|--logs] PACKAGE"
+
+  local dir
+  case "$kind" in
+    source)  dir="$(resolve_package "$target")" ;;
+    build)   resolve_package "$target" >/dev/null; dir="$(build_dir_for "$target")" ;;
+    install) resolve_package "$target" >/dev/null; dir="$(install_dir_for "$target")" ;;
+    logs)    resolve_package "$target" >/dev/null; dir="$(log_dir_for "$target")" ;;
+    *) die "unknown cd kind" ;;
+  esac
+
+  # If stdout is a terminal, just print the path (user can cd manually).
+  # If captured (eval/command sub), emit a cd command.
+  if [[ -t 1 ]]; then
+    echo "$dir"
+    echo "(tip: eval \"\$(pkg cd ${target})\"  or  cd \"\$(pkg cd ${target})\")" >&2
+  else
+    printf "cd %q\n" "$dir"
+  fi
+}
+
+cmd_goto() {
+  local pkg="${1:-}"
+  [[ -n "$pkg" ]] || die "usage: pkg goto PACKAGE"
+  local dir
+  dir="$(resolve_package "$pkg")"
+  cd "$dir"
+}
+
+build_one() {
+  local pkg="$1"
+  local src build install logs log_file
+  src="$(resolve_package "$pkg")"
+  build="$(build_dir_for "$pkg")"
+  install="$(install_dir_for "$pkg")"
+  logs="$(log_dir_for "$pkg")"
+  mkdir -p "$build" "$install" "$logs"
+
+  log_file="${logs}/build_${PRESET}_$(timestamp).log"
+  ln -sfn "$(basename "$log_file")" "${logs}/latest"
+
+  ensure_preset_link "$src"
+
+  export DRONE_PACKAGES_ROOT="${PACKAGES_ROOT}"
+  export DRONE_PKG_NAME="${pkg}"
+  export DRONE_PKG_BUILD_DIR="${build}"
+  export DRONE_PKG_INSTALL_DIR="${install}"
+  export DRONE_PKG_LOG_DIR="${logs}"
+
+
+  info "building ${pkg}  [preset=${PRESET}]"
+  note "source : ${src}"
+  note "build  : ${build}"
+  note "install: ${install}"
+  note "log    : ${log_file}"
+
+  {
+    echo "### $(date -Iseconds 2>/dev/null || date)  pkg=${pkg} preset=${PRESET}"
+    echo "### source=${src}"
+    echo "### build=${build} install=${install}"
+    echo
+
+    if [[ ! -f "${PRESETS_FILE}" ]]; then
+      die "missing ${PRESETS_FILE}"
+    fi
+
+    # Configure via preset when the package can see CMakePresets.json and ninja exists.
+    if [[ -e "${src}/CMakePresets.json" ]] && ensure_ninja_or_fallback; then
+      cmake -S "${src}" --preset "${PRESET}"
+      cmake --build "${build}" --parallel
+      cmake --install "${build}"
+    else
+      # Fallback: no ninja or no preset link — still honor path layout + build type.
+      local generator=( -G "Unix Makefiles" )
+      have ninja && generator=( -G Ninja )
+      local build_type="Debug"
+      [[ "${PRESET}" == "release" ]] && build_type="Release"
+      cmake -S "${src}" -B "${build}" \
+        "${generator[@]}" \
+        -DCMAKE_BUILD_TYPE="${build_type}" \
+        -DCMAKE_INSTALL_PREFIX="${install}" \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
+        -DBUILD_TESTING=OFF
+      cmake --build "${build}" --parallel
+      cmake --install "${build}"
+    fi
+
+    # Convenience: symlink compile_commands into source for clangd
+    if [[ -f "${build}/compile_commands.json" ]]; then
+      ln -sfn "${build}/compile_commands.json" "${src}/compile_commands.json"
+    fi
+
+    echo
+    echo "### OK  installed -> ${install}"
+  } 2>&1 | tee "${log_file}"
+
+  # Also keep a colcon-style setup helper for ament prefixes
+  write_run_helper "$pkg" "$install"
+}
+
+write_run_helper() {
+  local pkg="$1" install="$2"
+  local helper="${install}/pkg_env.sh"
+  cat > "$helper" <<EOF
+# Auto-generated by packages/pkg — source before running ${pkg}
+export AMENT_PREFIX_PATH="\${_PKG_INSTALL}\${AMENT_PREFIX_PATH:+:\${AMENT_PREFIX_PATH}}"
+export CMAKE_PREFIX_PATH="\${_PKG_INSTALL}\${CMAKE_PREFIX_PATH:+:\${CMAKE_PREFIX_PATH}}"
+export LD_LIBRARY_PATH="\${_PKG_INSTALL}/lib\${LD_LIBRARY_PATH:+:\${LD_LIBRARY_PATH}}"
+export PATH="\${_PKG_INSTALL}/bin:\${_PKG_INSTALL}/lib/${pkg}\${PATH:+:\${PATH}}"
+unset _PKG_INSTALL
+EOF
+}
+
+cmd_build() {
+  local packages=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --preset|-p)
+        PRESET="${2:-}"
+        [[ -n "$PRESET" ]] || die "--preset requires debug|release"
+        shift 2
+        ;;
+      --debug)   PRESET=debug;   shift ;;
+      --release) PRESET=release; shift ;;
+      -h|--help)
+        cmd_help
+        return 0
+        ;;
+      all|--all)
+        mapfile -t packages < <(list_package_names)
+        shift
+        ;;
+      --)
+        shift
+        break
+        ;;
+      -*)
+        die "unknown build option: $1"
+        ;;
+      *)
+        packages+=("$1")
+        shift
+        ;;
+    esac
+  done
+
+  case "$PRESET" in
+    debug|release) ;;
+    *) die "preset must be 'debug' or 'release' (got: ${PRESET})" ;;
+  esac
+
+  if [[ ${#packages[@]} -eq 0 ]]; then
+    info "no package specified — choose interactively (or pass 'all')"
+    mapfile -t packages < <(pick_packages)
+  fi
+  [[ ${#packages[@]} -gt 0 ]] || die "no packages selected"
+
+  local p
+  for p in "${packages[@]}"; do
+    build_one "$p"
+  done
+
+  info "done. built: ${packages[*]}"
+}
+
+# Find installed executables for a package.
+find_binaries() {
+  local pkg="$1"
+  local install
+  install="$(install_dir_for "$pkg")"
+  [[ -d "$install" ]] || return 0
+  # ament layout: lib/<pkg>/<exec>
+  if [[ -d "${install}/lib/${pkg}" ]]; then
+    find "${install}/lib/${pkg}" -maxdepth 1 -type f -perm -111 2>/dev/null | sort
+  fi
+  if [[ -d "${install}/bin" ]]; then
+    find "${install}/bin" -maxdepth 1 -type f -perm -111 2>/dev/null | sort
+  fi
+}
+
+cmd_run() {
+  local pkg="${1:-}"
+  [[ -n "$pkg" ]] || die "usage: pkg run PACKAGE [BINARY] [-- ARGS...]"
+  shift
+
+  resolve_package "$pkg" >/dev/null
+  local install
+  install="$(install_dir_for "$pkg")"
+  [[ -d "$install" ]] || die "package '${pkg}' is not installed. Run: pkg build ${pkg}"
+
+  local binary=""
+  local args=()
+  if [[ $# -gt 0 && "$1" != "--" && "$1" != -* ]]; then
+    # Could be binary name
+    binary="$1"
+    shift
+  fi
+  if [[ "${1:-}" == "--" ]]; then
+    shift
+  fi
+  args=("$@")
+
+  mapfile -t bins < <(find_binaries "$pkg")
+  [[ ${#bins[@]} -gt 0 ]] || die "no executables found under ${install}/lib/${pkg} or ${install}/bin"
+
+  local exe=""
+  if [[ -n "$binary" ]]; then
+    for b in "${bins[@]}"; do
+      if [[ "$(basename "$b")" == "$binary" ]]; then
+        exe="$b"
+        break
+      fi
+    done
+    [[ -n "$exe" ]] || die "binary '${binary}' not found. available: $(printf '%s ' "${bins[@]##*/}")"
+  elif [[ ${#bins[@]} -eq 1 ]]; then
+    exe="${bins[0]}"
+  else
+    if have fzf; then
+      exe="$(printf '%s\n' "${bins[@]}" | fzf --prompt="binary> ")" || die "cancelled"
+    else
+      echo "Executables in ${pkg}:" >&2
+      local i=1
+      for b in "${bins[@]}"; do
+        printf '  %2d) %s\n' "$i" "$(basename "$b")" >&2
+        i=$((i + 1))
+      done
+      echo -n "Select: " >&2
+      local sel
+      read -r sel
+      [[ "$sel" =~ ^[0-9]+$ ]] && (( sel >= 1 && sel <= ${#bins[@]} )) \
+        || die "invalid selection"
+      exe="${bins[$((sel - 1))]}"
+    fi
+  fi
+
+  # shellcheck disable=SC1090
+  [[ -f "${install}/pkg_env.sh" ]] && source "${install}/pkg_env.sh"
+  export AMENT_PREFIX_PATH="${install}${AMENT_PREFIX_PATH:+:${AMENT_PREFIX_PATH}}"
+  export LD_LIBRARY_PATH="${install}/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+
+  info "running $(basename "$exe")  (${pkg})"
+  exec "$exe" "${args[@]}"
+}
+
+cmd_clean() {
+  local packages=()
+  if [[ $# -eq 0 || "$1" == "all" || "$1" == "--all" ]]; then
+    mapfile -t packages < <(list_package_names)
+  else
+    packages=("$@")
+  fi
+  local p
+  for p in "${packages[@]}"; do
+    resolve_package "$p" >/dev/null
+    info "cleaning ${p}"
+    rm -rf "$(build_dir_for "$p")" "$(install_dir_for "$p")" "$(log_dir_for "$p")"
+  done
+}
+
+cmd_help() {
+  cat <<EOF
+pkg — package build helper for ${PACKAGES_ROOT}
+
+Path mapping (package name = X):
+  build   → packages/cache/X
+  install → packages/install/X
+  logs    → packages/cache/logs/X
+
+CMake presets (see packages/CMakePresets.json):
+  debug    CMAKE_BUILD_TYPE=Debug
+  release  CMAKE_BUILD_TYPE=Release
+
+Commands:
+  pkg list
+      List discoverable packages (CMakeLists.txt + package.xml).
+
+  pkg build [--preset debug|release] [all|PACKAGE...]
+      Configure + build + install using the cmake preset.
+      With no packages, opens an interactive picker.
+      Examples:
+        pkg build                     # interactive
+        pkg build all --preset release
+        pkg build cpp_pubsub --debug
+        pkg build cpp_pubsub px4_offboard_cpp -p release
+
+  pkg run PACKAGE [BINARY] [-- ARGS...]
+      Run an installed executable (sources ROS + install env).
+      Examples:
+        pkg run cpp_pubsub
+        pkg run cpp_pubsub talker
+        pkg run cpp_pubsub talker -- --ros-args -p use_sim_time:=true
+
+  pkg cd [--build|--install|--logs] PACKAGE
+      Print path (TTY) or a cd snippet for eval:
+        cd "\$(pkg cd cpp_pubsub)"
+        eval "\$(pkg cd cpp_pubsub)"
+        eval "\$(pkg cd --build cpp_pubsub)"
+
+  pkg path PACKAGE
+      Print absolute source path.
+
+  pkg paths PACKAGE
+      Print source / build / install / log paths.
+
+  pkg goto PACKAGE
+      Start an interactive shell in the package source tree.
+
+  pkg clean [all|PACKAGE...]
+      Remove cache/install/logs for package(s).
+
+  pkg help
+      Show this help.
+
+Environment:
+  PKG_PRESET=debug|release   default preset (overridden by --preset)
+EOF
+}
+
+# -----------------------------------------------------------------------------
+# Main
+# -----------------------------------------------------------------------------
+main() {
+  local cmd="${1:-help}"
+  shift || true
+
+  case "$cmd" in
+    list|ls)          cmd_list "$@" ;;
+    build|b)          cmd_build "$@" ;;
+    run|r)            cmd_run "$@" ;;
+    cd)               cmd_cd "$@" ;;
+    path)             cmd_path "$@" ;;
+    paths)            cmd_paths "$@" ;;
+    goto|shell)       cmd_goto "$@" ;;
+    clean|rm)         cmd_clean "$@" ;;
+    help|-h|--help)   cmd_help ;;
+    *)
+      die "unknown command '${cmd}'. Try: pkg help"
+      ;;
+  esac
+}
+
+main "$@"
