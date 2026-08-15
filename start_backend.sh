@@ -52,11 +52,11 @@ echo "==> Creating tmux session with 3 interactive container shells..."
 
 # Window 1: PX4
 tmux new-session -d -s "$SESSION" -n "PX4"
-tmux send-keys -t "$SESSION:PX4" "docker exec -it $CONTAINER bash -c 'cd Tools/PX4-Autopilot && exec bash'" C-m
+tmux send-keys -t "$SESSION:PX4" "docker exec -it $CONTAINER bash -c 'cd Tools/PX4-Autopilot && exec make px4_sitl gz_x500'" C-m
 
 # Window 2: DDS
 tmux new-window -t "$SESSION" -n "DDS"
-tmux send-keys -t "$SESSION:DDS" "docker exec -it $CONTAINER bash" C-m
+tmux send-keys -t "$SESSION:DDS" "docker exec -it $CONTAINER  bash -c 'MicroXRCEAgent udp4 -p 8888'" C-m
 
 # Window 3: ROS2
 tmux new-window -t "$SESSION" -n "ROS2"

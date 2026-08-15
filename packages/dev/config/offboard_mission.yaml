@@ -1,0 +1,21 @@
+offboard_mission:
+  ros__parameters:
+    # How many random NED waypoints to visit after takeoff.
+    num_waypoints: 5
+    # Takeoff height above the recorded home position [m].
+    takeoff_altitude: 5.0
+    # Random waypoint box around home, North/East [m].
+    waypoint_xy_range: 8.0
+    # Random waypoint height above home [m].
+    waypoint_alt_min: 4.0
+    waypoint_alt_max: 8.0
+    # Consider a setpoint reached within this 3D radius [m].
+    acceptance_radius: 0.6
+    # Hover at each waypoint (and at home before land) [s].
+    hover_time: 1.5
+    # Give up on a waypoint after this many seconds.
+    waypoint_timeout: 30.0
+    # Offboard setpoint stream rate. PX4 requires >2 Hz.
+    setpoint_rate_hz: 10.0
+    # 0 = nondeterministic. Any other value is a fixed RNG seed.
+    random_seed: 0
