@@ -121,13 +121,13 @@ public:
         create_publisher<VehicleCommand>("/fmu/in/vehicle_command", 10);
 
     local_position_sub_ = create_subscription<VehicleLocalPosition>(
-        "/fmu/out/vehicle_local_position", px4_qos,
+        "/fmu/out/vehicle_local_position_v1", px4_qos,
         [this](const VehicleLocalPosition::SharedPtr msg) {
           on_local_position(*msg);
         });
 
     vehicle_status_sub_ = create_subscription<VehicleStatus>(
-        "/fmu/out/vehicle_status", px4_qos,
+        "/fmu/out/vehicle_status_v4", px4_qos,
         [this](const VehicleStatus::SharedPtr msg) { on_vehicle_status(*msg); });
 
     land_detected_sub_ = create_subscription<VehicleLandDetected>(
@@ -137,7 +137,7 @@ public:
         });
 
     command_ack_sub_ = create_subscription<VehicleCommandAck>(
-        "/fmu/out/vehicle_command_ack", px4_qos,
+        "/fmu/out/vehicle_command_ack_v1", px4_qos,
         [this](const VehicleCommandAck::SharedPtr msg) { on_command_ack(*msg); });
 
     const auto period =
@@ -213,7 +213,7 @@ private:
       home_yaw_ = yaw_;
       have_home_ = true;
       takeoff_ = {home_.x, home_.y, home_.z - takeoff_altitude_};
-      setpoint_ = takeoff_;
+      setpoint_ = home_;
       setpoint_yaw_ = home_yaw_;
       RCLCPP_INFO(get_logger(),
                   "Home locked NED (%.2f, %.2f, %.2f) heading=%.2f rad",
@@ -304,14 +304,19 @@ private:
       setpoint_ = takeoff_;
       setpoint_yaw_ = home_yaw_;
       waypoint_enter_time_ = now();
+      hovering_ = false;
       set_phase(Phase::Takeoff);
       return;
     }
 
-    if (seconds_since(last_command_time_) >= 2.0) {
+    if (seconds_since(last_command_time_) >= 0.5) {
       last_command_time_ = now();
-      send_offboard_mode();
-      send_arm();
+      if (!offboard) {
+        send_offboard_mode();
+      }
+      if (!armed_) {
+        send_arm();
+      }
     }
 
     if (seconds_since(phase_enter_time_) > 20.0) {
@@ -353,7 +358,9 @@ private:
 
     const NedPoint &target = waypoints_[waypoint_index_];
     setpoint_ = target;
-    setpoint_yaw_ = yaw_ned(position_, target);
+    if (horizontal_distance(position_, target) > 1.0f) {
+      setpoint_yaw_ = yaw_ned(position_, target);
+    }
 
     if (!reached(target)) {
       if (seconds_since(waypoint_enter_time_) > waypoint_timeout_) {
