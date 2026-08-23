@@ -1,41 +1,25 @@
-cmake_minimum_required(VERSION 3.10)
-project(cpp_pubsub)
+cmake_minimum_required(VERSION 3.8)
+project(tutorial_interfaces)
 
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-add_executable(talker src/publisher_member_function.cpp)
-add_executable(listener src/subscriber_member_function.cpp)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(tutorial_interfaces REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
-ament_target_dependencies(talker
-  rclcpp
-  std_msgs
-  tutorial_interfaces
-
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Num.msg"
+  "msg/Sphere.msg"
+  "srv/AddThreeInts.srv"
+  DEPENDENCIES geometry_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
 )
 
-ament_target_dependencies(listener rclcpp std_msgs tutorial_interfaces)
-install(TARGETS
-  talker
-  listener
-  DESTINATION lib/${PROJECT_NAME}
-)
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

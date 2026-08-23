@@ -4,11 +4,12 @@
 FROM ros:humble-ros-base-jammy AS base-env
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=humble
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 ENV DISPLAY=:1
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        locales \
         curl \
         git \
         wget \
@@ -34,29 +35,32 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libgl1-mesa-glx \
         ssl-cert \
         openssh-server \
+        software-properties-common \
+    && locale-gen en_US.UTF-8 \
+    && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    software-properties-common \
-    && add-apt-repository ppa:ubuntu-toolchain-r/test \
+RUN wget -qO- "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0xC8EC952E2A0E1FBDC5090F6A2C277A0A352154E5" | gpg --dearmor -o /usr/share/keyrings/ubuntu-toolchain-r.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ubuntu-toolchain-r.gpg] http://ppa.launchpadcontent.net/ubuntu-toolchain-r/test/ubuntu jammy main" \
+        > /etc/apt/sources.list.d/ubuntu-toolchain-r-test.list \
+    && wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/llvm-archive-keyring.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-18 main" \
+        > /etc/apt/sources.list.d/llvm-18.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         gcc-13 \
         g++-13 \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    ca-certificates \
-    && wget -qO /tmp/llvm.sh https://apt.llvm.org/llvm.sh \
-    && chmod +x /tmp/llvm.sh \
-    && /tmp/llvm.sh 18 \
-    && apt-get install -y --no-install-recommends \
         clang-18 \
         clangd-18 \
         clang-format-18 \
         clang-tidy-18 \
-    && rm -f /tmp/llvm.sh \
+    && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 100 \
+    && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 100 \
+    && update-alternatives --install /usr/bin/clangd clangd /usr/bin/clangd-18 100 \
+    && update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100 \
+    && update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-18 100 \
+    && update-alternatives --install /usr/bin/clang clang /usr/bin/clang-18 100 \
+    && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-18 100 \
     && rm -rf /var/lib/apt/lists/*
 # ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 # ENV GIT_SSL_CAINFO=/etc/ssl/certs/ca-certificates.crt
@@ -137,7 +141,6 @@ RUN git clone \
     https://github.com/eProsima/Micro-XRCE-DDS-Agent.git \
     /tmp/Micro-XRCE-DDS-Agent
 
-RUN pwd && ls -al
 # =============================================================================
 # Dependencies
 # =============================================================================
@@ -150,6 +153,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ros-humble-rmw-fastrtps-cpp \
         ros-humble-rosidl-default-generators \
         ros-humble-rosidl-default-runtime \
+        ros-humble-common-interfaces \
+        ros-humble-pluginlib \
+        ros-humble-example-interfaces \
         python3-lark \
         vim \
         zsh \
@@ -236,7 +242,6 @@ EOF
 
 RUN chmod +x /tmp/create_kasm_user.exp && \
     /tmp/create_kasm_user.exp && \
-    cat /tmp/create_kasm_user.exp && \
     rm /tmp/create_kasm_user.exp
 
 RUN mkdir -p /home/$USERNAME/.vnc && \
@@ -323,10 +328,11 @@ RUN echo "source /opt/ros/humble/setup.bash" >> /home/$USERNAME/.bashrc \
 # Post-setup: zsh as primary shell + Oh My Zsh plugins (autocomplete/suggestions)
 # =============================================================================
 USER root
+COPY docker/setup.nvim.sh /tmp/setup.nvim.sh
 COPY docker/post.setup.sh /tmp/post.setup.sh
-RUN chmod +x /tmp/post.setup.sh \
+RUN chmod +x /tmp/post.setup.sh /tmp/setup.nvim.sh \
     && USERNAME=$USERNAME /tmp/post.setup.sh \
-    && rm -f /tmp/post.setup.sh
+    && rm -f /tmp/post.setup.sh /tmp/setup.nvim.sh
 
 WORKDIR /home/$USERNAME
 USER $USERNAME

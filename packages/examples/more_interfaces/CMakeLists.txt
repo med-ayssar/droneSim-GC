@@ -1,41 +1,40 @@
-cmake_minimum_required(VERSION 3.10)
-project(cpp_pubsub)
+cmake_minimum_required(VERSION 3.8)
+project(more_interfaces)
 
-
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-add_executable(talker src/publisher_member_function.cpp)
-add_executable(listener src/subscriber_member_function.cpp)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(tutorial_interfaces REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(rclcpp REQUIRED)
 
-ament_target_dependencies(talker
-  rclcpp
-  std_msgs
-  tutorial_interfaces
-
+set(msg_files
+  "msg/AddressBook.msg"
 )
+rosidl_generate_interfaces(${PROJECT_NAME}
+  ${msg_files}
+)
+ament_export_dependencies(rosidl_default_runtime)
 
-ament_target_dependencies(listener rclcpp std_msgs tutorial_interfaces)
+
+add_executable(publish_address_book src/publish.cpp)
+ament_target_dependencies(publish_address_book rclcpp)
+
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} "rosidl_typesupport_cpp")
+
+target_link_libraries(publish_address_book
+  "${cpp_typesupport_target}")
+
 install(TARGETS
-  talker
-  listener
-  DESTINATION lib/${PROJECT_NAME}
-)
+    publish_address_book
+  DESTINATION lib/${PROJECT_NAME})
+
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

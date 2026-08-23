@@ -7,7 +7,7 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
       target: final
-    container_name: px4-ros2-dev
+    container_name: px4-ros2
     privileged: true
     tty: true
     stdin_open: true

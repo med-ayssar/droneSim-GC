@@ -48,7 +48,8 @@
         "ms-python.python",
         "ms-iot.vscode-ros",
         "twxs.cmake",
-        "streetsidesoftware.code-spell-checker"
+        "streetsidesoftware.code-spell-checker",
+        "llvm-vs-code-extensions.vscode-clangd"
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "zsh",

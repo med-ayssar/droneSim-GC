@@ -1,15 +1,10 @@
-cmake_minimum_required(VERSION 3.10)
-project(cpp_pubsub)
+cmake_minimum_required(VERSION 3.8)
+project(cpp_srvcli)
 
 
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+add_executable(server src/server.cpp)
+add_executable(client src/client.cpp)
 
-add_executable(talker src/publisher_member_function.cpp)
-add_executable(listener src/subscriber_member_function.cpp)
-
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
@@ -17,25 +12,13 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
+find_package(example_interfaces REQUIRED)
 find_package(tutorial_interfaces REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
 
-ament_target_dependencies(talker
-  rclcpp
-  std_msgs
-  tutorial_interfaces
+ament_target_dependencies(server rclcpp example_interfaces tutorial_interfaces)
+ament_target_dependencies(client rclcpp example_interfaces tutorial_interfaces)
 
-)
 
-ament_target_dependencies(listener rclcpp std_msgs tutorial_interfaces)
-install(TARGETS
-  talker
-  listener
-  DESTINATION lib/${PROJECT_NAME}
-)
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -47,5 +30,12 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+
+
+install(TARGETS
+    server
+    client
+  DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

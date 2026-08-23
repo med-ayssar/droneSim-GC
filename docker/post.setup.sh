@@ -19,12 +19,38 @@ fi
 echo "==> Installing zsh, bat (for zsh-bat), and shell helpers..."
 apt-get update
 apt-get install -y --no-install-recommends \
+  locales \
   zsh \
   bat \
   git \
   curl \
-  ca-certificates
+  ca-certificates \
+  unzip \
+  tar \
+  xz-utils \
+  ripgrep \
+  fd-find \
+  xclip \
+  python3-pip \
+  python3-venv \
+  fontconfig
 rm -rf /var/lib/apt/lists/*
+
+echo "==> Generating en_US.UTF-8 locale..."
+locale-gen en_US.UTF-8
+update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+
+# Ubuntu names the fd binary fdfind
+if command -v fdfind >/dev/null 2>&1 && ! command -v fd >/dev/null 2>&1; then
+  ln -sf "$(command -v fdfind)" /usr/local/bin/fd
+fi
+
+# Ensure unversioned clangd, clang-format, and clang-tidy exist on PATH for Neovim / editors
+for tool in clangd clang-format clang-tidy clang clang++; do
+  if command -v "${tool}-18" >/dev/null 2>&1; then
+    ln -sf "$(command -v "${tool}-18")" "/usr/local/bin/${tool}"
+  fi
+done
 
 ZSH_BIN="$(command -v zsh)"
 if [[ -z "${ZSH_BIN}" ]]; then
@@ -116,6 +142,9 @@ elif [[ -f "$HOME/Tools/install/px4_msgs/setup.bash" ]]; then
   source "$HOME/Tools/install/px4_msgs/setup.bash"
 fi
 
+# Terminal color support (prevents arrow key escape sequence issues)
+export TERM="${TERM:-xterm-256color}"
+
 # :1 = KasmVNC virtual display; use DISPLAY=:0 for WSL/Windows host display
 export DISPLAY="${DISPLAY:-:1}"
 
@@ -123,6 +152,13 @@ export DISPLAY="${DISPLAY:-:1}"
 alias px4='cd ~/Tools/PX4-Autopilot'
 alias pkgs='cd ~/packages'
 alias colcon-build='colcon build --symlink-install'
+
+# Neovim (jdhao/nvim-config) + user pip / node bins
+export PATH="/opt/nvim/bin:/opt/node/bin:/opt/lua-language-server/bin:$HOME/.local/bin:$PATH"
+export EDITOR=nvim
+export VISUAL=nvim
+alias vim=nvim
+alias vi=nvim
 ZSHRC
 
 chown "${USERNAME}:${USERNAME}" "${USER_HOME}/.zshrc"
@@ -156,3 +192,17 @@ echo "==> zsh setup complete for ${USERNAME}"
 echo "    shell:  $(getent passwd "${USERNAME}" | cut -d: -f7)"
 echo "    theme:  gnzh"
 echo "    plugins: git zsh-autosuggestions zsh-syntax-highlighting zsh-bat docker-compose"
+
+# =============================================================================
+# Run Neovim + LazyVim Setup (setup.nvim.sh)
+# =============================================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${SCRIPT_DIR}/setup.nvim.sh" ]]; then
+  echo "==> Invoking ${SCRIPT_DIR}/setup.nvim.sh..."
+  USERNAME="${USERNAME}" bash "${SCRIPT_DIR}/setup.nvim.sh"
+elif [[ -f /tmp/setup.nvim.sh ]]; then
+  echo "==> Invoking /tmp/setup.nvim.sh..."
+  USERNAME="${USERNAME}" bash /tmp/setup.nvim.sh
+else
+  echo "WARN: setup.nvim.sh not found" >&2
+fi
