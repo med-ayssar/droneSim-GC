@@ -130,7 +130,15 @@ ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
 
 # ROS 2 + PX4 workspace (container environment)
-if [[ -f /opt/ros/humble/setup.zsh ]]; then
+if [[ -f /opt/ros/lyrical/setup.zsh ]]; then
+  source /opt/ros/lyrical/setup.zsh
+elif [[ -f /opt/ros/lyrical/setup.bash ]]; then
+  source /opt/ros/lyrical/setup.bash
+elif [[ -f /opt/ros/jazzy/setup.zsh ]]; then
+  source /opt/ros/jazzy/setup.zsh
+elif [[ -f /opt/ros/jazzy/setup.bash ]]; then
+  source /opt/ros/jazzy/setup.bash
+elif [[ -f /opt/ros/humble/setup.zsh ]]; then
   source /opt/ros/humble/setup.zsh
 elif [[ -f /opt/ros/humble/setup.bash ]]; then
   source /opt/ros/humble/setup.bash
