@@ -4,6 +4,8 @@ set -euo pipefail
 
 SESSION="px4-stack"
 IMAGE="drone-sim-px4-ros2:latest"
+IMAGE="drone-sim_devcontainer-px4-ros2:latest"
+IMAGE="dev-px4-ros2:latest"
 CONTAINER="px4-ros2"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -13,7 +13,8 @@
 // Requires Micro XRCE-DDS Agent + PX4 SITL (or hardware) already running:
 //   MicroXRCEAgent udp4 -p 8888
 //   cd ~/Tools/PX4-Autopilot && make px4_sitl gz_x500
-//   ros2 launch offboard_mission offboard_mission.launch.py num_waypoints:=5
+//   ros2 launch offboard_mission offboard_mission.launch.py \
+//        num_waypoints:=5 start_lat:=50.7753 start_lon:=6.0839 start_alt:=173.0
 
 #include <px4_msgs/msg/offboard_control_mode.hpp>
 #include <px4_msgs/msg/trajectory_setpoint.hpp>
@@ -151,6 +152,9 @@ public:
                 "rate=%.1f Hz",
                 num_waypoints_, takeoff_altitude_, waypoint_xy_range_,
                 setpoint_rate_hz_);
+    RCLCPP_INFO(get_logger(),
+                "Start coordinate (WGS84): lat=%.7f lon=%.7f alt=%.1f m AMSL",
+                start_lat_, start_lon_, start_alt_);
   }
 
 private:
@@ -177,6 +181,10 @@ private:
     declare_parameter("waypoint_timeout", 30.0);
     declare_parameter("setpoint_rate_hz", 10.0);
     declare_parameter("random_seed", 0);
+    // WGS84 start pose. Defaults are Aachen, Germany (city centre).
+    declare_parameter("start_lat", 50.7753);
+    declare_parameter("start_lon", 6.0839);
+    declare_parameter("start_alt", 173.0);
   }
 
   void load_parameters() {
@@ -196,6 +204,9 @@ private:
     setpoint_rate_hz_ =
         std::max(5.0, get_parameter("setpoint_rate_hz").as_double());
     random_seed_ = get_parameter("random_seed").as_int();
+    start_lat_ = get_parameter("start_lat").as_double();
+    start_lon_ = get_parameter("start_lon").as_double();
+    start_alt_ = static_cast<float>(get_parameter("start_alt").as_double());
 
     if (waypoint_alt_max_ < waypoint_alt_min_) {
       std::swap(waypoint_alt_min_, waypoint_alt_max_);
@@ -279,6 +290,10 @@ private:
   }
 
   void tick_wait_for_px4() {
+    if (seconds_since(last_origin_command_time_) >= 1.0) {
+      last_origin_command_time_ = now();
+      send_global_origin();
+    }
     if (!have_home_) {
       return;
     }
@@ -535,7 +550,7 @@ private:
     trajectory_pub_->publish(msg);
   }
 
-  void publish_vehicle_command(uint16_t command, float param1 = 0.0f,
+  void publish_vehicle_command(uint32_t command, float param1 = 0.0f,
                                float param2 = 0.0f, float param3 = 0.0f,
                                float param4 = 0.0f, double param5 = 0.0,
                                double param6 = 0.0, float param7 = 0.0f) {
@@ -573,6 +588,23 @@ private:
     publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_MODE, 1.0f,
                             kMainModeOffboard);
     RCLCPP_INFO(get_logger(), "Offboard mode requested");
+  }
+
+  void send_global_origin() {
+    // Local NED origin (0,0,0) in WGS84. PX4 accepts both the internal
+    // SET_GPS_GLOBAL_ORIGIN (100000) and MAV_CMD_DO_SET_GLOBAL_ORIGIN (611).
+    publish_vehicle_command(VehicleCommand::VEHICLE_CMD_SET_GPS_GLOBAL_ORIGIN,
+                            0.0f, 0.0f, 0.0f, 0.0f, start_lat_, start_lon_,
+                            start_alt_);
+    publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_GLOBAL_ORIGIN,
+                            0.0f, 0.0f, 0.0f, 0.0f, start_lat_, start_lon_,
+                            start_alt_);
+    // Home / RTL point. param1 = 0 means use the supplied lat/lon/alt.
+    publish_vehicle_command(VehicleCommand::VEHICLE_CMD_DO_SET_HOME, 0.0f, 0.0f,
+                            0.0f, 0.0f, start_lat_, start_lon_, start_alt_);
+    RCLCPP_INFO(get_logger(),
+                "PX4 origin/home requested: lat=%.7f lon=%.7f alt=%.1f m",
+                start_lat_, start_lon_, start_alt_);
   }
 
   void send_land() {
@@ -669,10 +701,14 @@ private:
   double waypoint_timeout_{30.0};
   double setpoint_rate_hz_{10.0};
   int64_t random_seed_{0};
+  double start_lat_{50.7753};
+  double start_lon_{6.0839};
+  float start_alt_{173.0f};
 
   Phase phase_{Phase::WaitForPx4};
   rclcpp::Time phase_enter_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_command_time_{0, 0, RCL_ROS_TIME};
+  rclcpp::Time last_origin_command_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time waypoint_enter_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time hover_start_time_{0, 0, RCL_ROS_TIME};
   rclcpp::Time last_status_log_{0, 0, RCL_ROS_TIME};

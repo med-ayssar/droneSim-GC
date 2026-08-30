@@ -1,6 +1,7 @@
 # Dev Container compose — reuses docker/Dockerfile without WSL-only binds.
 # For bare `docker compose up` on WSL (with WSLg display mounts), use the
 # root docker-compose.yml instead.
+name: dev
 services:
   px4-ros2:
     build:

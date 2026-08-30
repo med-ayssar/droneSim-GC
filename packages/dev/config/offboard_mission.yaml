@@ -19,3 +19,8 @@ offboard_mission:
     setpoint_rate_hz: 10.0
     # 0 = nondeterministic. Any other value is a fixed RNG seed.
     random_seed: 0
+    # WGS84 start coordinate sent to PX4 as local origin + home.
+    # Defaults: Aachen, Germany (city centre / cathedral).
+    start_lat: 50.7753
+    start_lon: 6.0839
+    start_alt: 173.0
