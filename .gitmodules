@@ -1,0 +1,9 @@
+[submodule "protobuf"]
+	path = protobuf
+	url = git@github.com:med-ayssar/drone-protobuf.git
+[submodule "services"]
+	path = services
+	url = git@github.com:med-ayssar/drone-services.git
+[submodule "frontend"]
+	path = frontend
+	url = git@github.com:med-ayssar/drone-frontend.git

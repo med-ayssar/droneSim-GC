@@ -60,9 +60,10 @@ tmux send-keys -t "$SESSION:PX4" "docker exec -it $CONTAINER bash -c 'cd Tools/P
 tmux new-window -t "$SESSION" -n "DDS"
 tmux send-keys -t "$SESSION:DDS" "docker exec -it $CONTAINER  bash -c 'MicroXRCEAgent udp4 -p 8888'" C-m
 
-# Window 3: ROS2
+# Window 3: ROS 2 NATS bridge. It is rebuilt from the mounted workspace so
+# frontend/bridge changes are picked up on every backend launch.
 tmux new-window -t "$SESSION" -n "ROS2"
-tmux send-keys -t "$SESSION:ROS2" "docker exec -it $CONTAINER bash" C-m
+tmux send-keys -t "$SESSION:ROS2" "docker exec -it $CONTAINER bash -lc 'source /opt/ros/humble/setup.bash && source /home/drone/Tools/install/px4_msgs/setup.bash && cd /home/drone/packages && colcon build --packages-select px4_nats_bridge && source install/setup.bash && exec ros2 run px4_nats_bridge px4_nats_bridge_node'" C-m
 
 # --------------------------------------------------
 # Attach to session (defaulting to PX4 window)
