@@ -30,6 +30,8 @@ services:
       - "14560:14560/udp"
 
       # --- Micro XRCE-DDS Agent (PX4 <-> ROS 2 Bridge) ---
+      # SITL uses UDP 8888. Real hardware uses the serial device from
+      # docker-compose.hardware.yml (./start_backend.sh --hardware).
       - "8888:8888/udp"
 
       # --- ROS 2 DDS Discovery ---

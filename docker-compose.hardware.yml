@@ -1,0 +1,17 @@
+# Real PX4 over USB serial on OrbStack.
+# Applied by ./start_backend.sh --hardware (not by a plain `docker compose up`).
+#
+# The source must be OrbStack's tty path from `orb serial list`
+# (for example /dev/tty.usbmodem01, /dev/ttyACM0, or /dev/ttyUSB0).
+# Inside the container it is always /dev/px4.
+services:
+  px4-ros2:
+    devices:
+      - "${PX4_SERIAL_DEVICE}:/dev/px4:rwm"
+    group_add:
+      - dialout
+    environment:
+      PX4_HARDWARE: "1"
+      PX4_SERIAL_DEVICE: /dev/px4
+      PX4_SERIAL_HOST_DEVICE: ${PX4_SERIAL_DEVICE}
+      PX4_SERIAL_BAUD: ${PX4_SERIAL_BAUD:-921600}
