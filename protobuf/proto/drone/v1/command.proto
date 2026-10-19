@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package drone.v1;
+
+enum CommandType {
+  COMMAND_TYPE_UNSPECIFIED = 0;
+  COMMAND_TYPE_ARM = 1;
+  COMMAND_TYPE_DISARM = 2;
+  COMMAND_TYPE_TAKEOFF = 3;
+  COMMAND_TYPE_LAND = 4;
+  COMMAND_TYPE_RTL = 5;
+  COMMAND_TYPE_HOLD = 6;
+  COMMAND_TYPE_OFFBOARD = 7;
+  COMMAND_TYPE_SET_VELOCITY = 8;
+}
+
+message TakeoffParameters {
+  double altitude_m = 1;
+  double speed_m_s = 2;
+}
+
+message VelocityParameters {
+  double vx_m_s = 1;
+  double vy_m_s = 2;
+  double vz_m_s = 3;
+  double yaw_rate_rad_s = 4;
+}
+
+message DroneCommand {
+  string request_id = 1;
+  string drone_id = 2;
+  uint64 timestamp_ms = 3;
+  CommandType command = 4;
+  TakeoffParameters takeoff = 5;
+  VelocityParameters velocity = 6;
+}

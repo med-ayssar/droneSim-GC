@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  body {
+    background-color: #070707;
+    color: #e8e4d9;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  /* Custom tactical scrollbar */
+  ::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #070707;
+    border-left: 1px solid #1a1a1a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #2a2a2a;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #c4a574;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply relative bg-lattice-panel border border-lattice-line;
+  }
+
+  .panel-tick::before,
+  .panel-tick::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .panel-tick::before {
+    top: -1px;
+    left: -1px;
+    border-top: 1.5px solid #c4a574;
+    border-left: 1.5px solid #c4a574;
+  }
+
+  .panel-tick::after {
+    top: -1px;
+    right: -1px;
+    border-top: 1.5px solid #c4a574;
+    border-right: 1.5px solid #c4a574;
+  }
+
+  .panel-tick-bottom::before,
+  .panel-tick-bottom::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    pointer-events: none;
+    z-index: 10;
+  }
+
+  .panel-tick-bottom::before {
+    bottom: -1px;
+    left: -1px;
+    border-bottom: 1.5px solid #c4a574;
+    border-left: 1.5px solid #c4a574;
+  }
+
+  .panel-tick-bottom::after {
+    bottom: -1px;
+    right: -1px;
+    border-bottom: 1.5px solid #c4a574;
+    border-right: 1.5px solid #c4a574;
+  }
+
+  .label {
+    @apply font-mono text-[10px] uppercase tracking-[0.22em] text-lattice-mute select-none;
+  }
+
+  .value {
+    @apply font-mono tabular-nums text-lattice-ink;
+  }
+
+  .cmd-btn {
+    @apply font-mono text-[11px] uppercase tracking-[0.16em] border border-lattice-line
+      bg-[#101010] text-lattice-ink px-3 py-2.5 transition-all duration-150 select-none
+      hover:border-lattice-amber hover:text-lattice-amber hover:bg-lattice-amber/5
+      active:scale-[0.98]
+      disabled:opacity-30 disabled:hover:border-lattice-line disabled:hover:text-lattice-ink disabled:hover:bg-[#101010];
+  }
+
+  .cmd-btn-active {
+    @apply border-lattice-amber text-lattice-amber bg-lattice-amber/15 shadow-lattice-glow;
+  }
+
+  .cmd-btn-bad {
+    @apply hover:border-lattice-bad hover:text-lattice-bad hover:bg-lattice-bad/10;
+  }
+
+  .cmd-btn-ok {
+    @apply hover:border-lattice-ok hover:text-lattice-ok hover:bg-lattice-ok/10;
+  }
+
+  .pad-btn {
+    @apply flex items-center justify-center border border-lattice-line bg-[#121212]
+      text-lattice-ink transition-colors select-none
+      hover:border-lattice-amber hover:text-lattice-amber
+      active:bg-lattice-amber/20
+      disabled:opacity-25 disabled:hover:border-lattice-line disabled:hover:text-lattice-ink;
+  }
+
+  .pad-btn-held {
+    @apply border-lattice-amber text-lattice-amber bg-lattice-amber/20 shadow-lattice-glow;
+  }
+}
+
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: #2a2a2a;
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #c4a574;
+  border: 1px solid #070707;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #c4a574;
+  border: 1px solid #070707;
+  cursor: pointer;
+}
+

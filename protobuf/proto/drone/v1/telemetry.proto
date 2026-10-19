@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package drone.v1;
+
+message DroneTelemetry {
+  string drone_id = 1;
+  uint64 timestamp_ms = 2;
+
+  bool connected = 3;
+  bool armed = 4;
+
+  string flight_mode = 5;
+
+  double latitude = 6;
+  double longitude = 7;
+  double altitude_m = 8;
+
+  double roll = 9;
+  double pitch = 10;
+  double yaw = 11;
+
+  double battery_percentage = 12;
+
+  bool gps_available = 13;
+  uint32 satellites_visible = 14;
+  double heading_deg = 15;
+}

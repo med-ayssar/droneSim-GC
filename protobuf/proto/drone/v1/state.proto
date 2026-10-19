@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package drone.v1;
+
+enum CommandStatus {
+  COMMAND_STATUS_UNSPECIFIED = 0;
+  COMMAND_STATUS_RECEIVED = 1;
+  COMMAND_STATUS_ACCEPTED = 2;
+  COMMAND_STATUS_REJECTED = 3;
+  COMMAND_STATUS_EXECUTED = 4;
+  COMMAND_STATUS_FAILED = 5;
+}
+
+message CommandResult {
+  string request_id = 1;
+  string drone_id = 2;
+  CommandStatus status = 3;
+  string message = 4;
+  uint64 timestamp_ms = 5;
+}
